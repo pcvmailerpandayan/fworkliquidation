@@ -1,0 +1,778 @@
+<!-- ================================================================= -->
+<!-- INDEX.HTML (FRONTEND) - GITHUB READY (IMPROVED V3 WITH AUDIT TRAIL) -->
+<!-- ================================================================= -->
+<!DOCTYPE html>
+<html lang="tl" class="dark:bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fieldwork Fund Liquidation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script> tailwind.config = { darkMode: 'media' } </script>
+    <style>
+        .view-section { display: none; }
+        .active-view { display: block; }
+        
+        /* CSS FIX PARA SA MODAL WIDTH */
+        .swal2-popup { border-radius: 1rem !important; }
+        .swal2-popup:not(.swal-wide) { width: 95% !important; max-width: 500px !important; }
+        .swal-wide { width: 95% !important; max-width: 1000px !important; }
+
+        @media (prefers-color-scheme: dark) {
+            .swal2-popup { background: #1e293b !important; color: #f8fafc !important; border: 1px solid #334155; }
+            .swal2-title, .swal2-html-container { color: #f8fafc !important; }
+        }
+        .fuse-container { position: relative; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; margin-top: 5px; }
+        .fuse-burn { position: absolute; top: 0; right: 0; height: 100%; background: #ef4444; width: 100%; transform-origin: right; animation: burnDown 60s linear infinite; }
+        .fuse-spark { position: absolute; top: -6px; right: 0; color: #f59e0b; font-size: 14px; animation: sparkMove 60s linear infinite, sparkFlicker 0.2s infinite; }
+        @keyframes burnDown { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+        @keyframes sparkMove { 0% { right: 0%; } 100% { right: 100%; } }
+        @keyframes sparkFlicker { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+        .currency-input { text-align: right; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans antialiased transition-colors duration-200">
+
+    <nav class="bg-blue-800 dark:bg-blue-950 text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="font-bold text-lg md:text-xl flex items-center tracking-wide"><i class="fa-solid fa-file-invoice-dollar mr-3"></i> TTP Liquidation System</h1>
+            <div id="userInfo" class="hidden text-sm font-medium flex items-center space-x-3">
+                <span id="displayUserName" class="hidden md:inline text-blue-200 font-bold"></span> 
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 max-w-6xl">
+
+        <!-- VIEW 1: LOGIN PAGE -->
+        <div id="loginView" class="view-section active-view max-w-md mx-auto mt-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border dark:border-slate-700">
+            <div class="text-center mb-6">
+                <i class="fa-solid fa-user-shield text-5xl text-blue-600 dark:text-blue-500 mb-4"></i>
+                <h2 class="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Verify It's You</h2>
+                <p class="text-xs text-slate-500 mt-1">Ilagay ang iyong ID para makapasok sa system.</p>
+            </div>
+            <div class="mb-5">
+                <label class="block text-slate-600 dark:text-slate-400 text-xs font-bold mb-2 uppercase">Employee Number</label>
+                <input type="text" id="empNo" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white text-center font-bold tracking-widest" placeholder="ID Number">
+            </div>
+            <button id="btnLogin" onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition flex justify-center items-center uppercase tracking-wider">
+                <span>Mag-Patuloy</span><i class="fa-solid fa-circle-notch fa-spin ml-2 hidden" id="loginSpinner"></i>
+            </button>
+        </div>
+
+        <!-- VIEW 2: NORMAL USER DASHBOARD -->
+        <div id="normalDashboardView" class="view-section">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b dark:border-slate-700 pb-4">
+                <h2 class="text-2xl font-black text-slate-800 dark:text-white uppercase"><i class="fa-solid fa-folder-open text-blue-600 mr-3"></i>Mga Payout Ko</h2>
+                <button onclick="showCreateProject()" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition"><i class="fa-solid fa-plus mr-2"></i>Bagong Payout</button>
+            </div>
+            <div id="projectListContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        </div>
+
+        <!-- VIEW 3: CREATE NEW PROJECT -->
+        <div id="createProjectView" class="view-section max-w-lg mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 md:p-8 border dark:border-slate-700">
+            <h2 class="text-xl font-black mb-6 text-slate-800 dark:text-white border-b dark:border-slate-700 pb-3 uppercase">Gumawa ng Bagong Payout</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Pangalan ng Project</label>
+                    <input type="text" id="projName" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white" placeholder="Hal. Site Inspection - Bulacan">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Description</label>
+                    <textarea id="projDesc" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white" rows="2"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Start Date</label>
+                        <input type="date" id="projStart" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">End Date</label>
+                        <input type="date" id="projEnd" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Initial Fund ₱</label>
+                    <input type="text" inputmode="decimal" id="initialFund" onfocus="cleanFormat(this)" onblur="applyFormat(this)" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white currency-input text-lg font-bold" value="0.00">
+                </div>
+                <div class="flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-3 mt-6 pt-4 border-t dark:border-slate-700">
+                    <button onclick="switchView('normalDashboardView')" class="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white px-5 py-3 rounded-xl font-bold transition">Kanselahin</button>
+                    <button id="btnCreateProj" onclick="createProject()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center">
+                        <span>I-save Payout</span><i class="fa-solid fa-circle-notch fa-spin ml-2 hidden" id="createSpinner"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: DAILY LIQUIDATION ENTRY FORM -->
+        <div id="dailyEntryView" class="view-section">
+            <button onclick="switchView(currentUser.role==='Audit' ? 'auditDashboardView' : 'normalDashboardView')" class="mb-4 text-blue-600 dark:text-blue-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i> Bumalik sa Dashboard</button>
+            
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-md border-l-4 border-blue-600 mb-6 border dark:border-slate-700">
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight" id="activeProjName">Project Name</h3>
+                <p class="text-sm text-slate-500 mt-1" id="activeProjDesc">Description here</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                    <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border dark:border-blue-800/50"><span class="block text-[10px] font-black text-blue-500 uppercase">Initial Fund</span><span class="font-black text-xl text-slate-900 dark:text-white" id="summaryInitial">0.00</span></div>
+                    <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border dark:border-red-800/50"><span class="block text-[10px] font-black text-red-500 uppercase">Total Expenses</span><span class="font-black text-xl text-red-600 dark:text-red-400" id="summaryExpense">0.00</span></div>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-xl border dark:border-emerald-800/50"><span class="block text-[10px] font-black text-emerald-600 uppercase">Replenished</span><span class="font-black text-xl text-emerald-600 dark:text-emerald-400" id="summaryReplenish">0.00</span></div>
+                    <div class="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl border dark:border-amber-800/50"><span class="block text-[10px] font-black text-amber-600 uppercase">Remaining Fund</span><span class="font-black text-xl text-amber-600 dark:text-amber-400" id="summaryRemaining">0.00</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-2xl shadow-xl border dark:border-slate-700">
+                <h3 class="text-lg font-black mb-6 border-b dark:border-slate-700 pb-3 text-slate-900 dark:text-white uppercase" id="formTitle">Daily Liquidation Entry</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Petsa ng Liquidation</label>
+                        <input type="date" id="entryDate" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Daily Meal Allowance ₱</label>
+                        <input type="text" inputmode="decimal" id="entryMeals" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white currency-input font-medium text-lg" value="0.00">
+                    </div>
+                </div>
+
+                <div class="mb-6 p-5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="font-black text-slate-700 dark:text-slate-300 uppercase text-sm"><i class="fa-solid fa-car text-blue-500 mr-2"></i>Transportation</label>
+                        <button onclick="addTranspoRow()" class="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-blue-200 transition">+ Add Route</button>
+                    </div>
+                    <div id="transpoContainer" class="space-y-3"></div>
+                </div>
+
+                <div class="mb-6 p-5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="font-black text-slate-700 dark:text-slate-300 uppercase text-sm"><i class="fa-solid fa-box text-emerald-500 mr-2"></i>Materials / Ibang Binili</label>
+                        <button onclick="addMaterialRow()" class="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-emerald-200 transition">+ Add Item</button>
+                    </div>
+                    <div id="materialsContainer" class="space-y-3"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                    <div class="flex flex-col space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Replenishment Pondo</label>
+                            <input type="text" inputmode="decimal" id="entryReplenish" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white currency-input font-medium text-lg" value="0.00">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase flex items-center justify-between">
+                            <span>Mga Resibo (Hanggang 5 Image)</span>
+                            <span class="text-[10px] text-blue-500"><i class="fa-solid fa-camera"></i> / <i class="fa-solid fa-image"></i></span>
+                        </label>
+                        <input type="file" id="entryReceipts" accept="image/*" multiple class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <span id="editReceiptHint" class="hidden text-[10px] text-slate-500 font-bold block mt-1"><i class="fa-solid fa-circle-info mr-1"></i>Iwanang blangko kung hindi papalitan ang nakaraang resibo.</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-6 rounded-2xl flex justify-between items-center mb-8 shadow-inner border border-slate-700">
+                    <div>
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Expense Today</span>
+                        <span class="text-3xl font-black tracking-tight" id="todayTotalExp">₱0.00</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">New Outstanding</span>
+                        <span class="text-3xl font-black text-amber-400 tracking-tight" id="todayOutstanding">₱0.00</span>
+                    </div>
+                </div>
+
+                <button onclick="submitDailyLog()" id="btnSubmitLog" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 px-4 rounded-xl shadow-xl text-lg transition flex justify-center items-center uppercase tracking-wide">
+                    <span>I-submit ang Liquidation</span><i class="fa-solid fa-circle-notch fa-spin ml-2 hidden" id="submitSpinner"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 5: AUDIT DASHBOARD -->
+        <div id="auditDashboardView" class="view-section">
+            <h2 class="text-2xl font-black text-slate-800 dark:text-white mb-6 uppercase border-b dark:border-slate-700 pb-4"><i class="fa-solid fa-shield-halved text-blue-600 mr-3"></i>Audit Center Tracker</h2>
+            
+            <div class="mb-6 relative max-w-lg">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-slate-400"></i>
+                <input type="text" id="auditSearchInput" onkeyup="filterAuditTable()" class="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white" placeholder="Maghanap by Name, ID, o Project...">
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse" id="auditTable">
+                        <thead class="bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-700">
+                            <tr>
+                                <th class="p-4 text-xs font-black text-slate-500 uppercase tracking-wider">Project / Payout</th>
+                                <th class="p-4 text-xs font-black text-slate-500 uppercase tracking-wider">User Details</th>
+                                <th class="p-4 text-xs font-black text-slate-500 uppercase tracking-wider">Duration / Status</th>
+                                <th class="p-4 text-xs font-black text-slate-500 uppercase tracking-wider">Due Timer</th>
+                                <th class="p-4 text-xs font-black text-slate-500 uppercase tracking-wider text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditProjectList" class="divide-y dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        // === GITHUB PAGES CONFIGURATION ===
+        // Palitan ito ng iyong Google Apps Script Web App URL kapag nailipat na sa GitHub.
+        // Hayaan itong ganyan kung idedeploy mo muna sa loob mismo ng Google Script.
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwJDa5CGBSeDh06X0J1dbhGadCq0Ag0I8b5TQbe8-HcMNPnBJy2dgZsmC7pQVgbZd6J/exec';
+
+        let currentUser = null;
+        let activeProjectInfo = null;
+        let activeLogId = null; 
+        let timersArray = [];
+        let allAuditProjects = []; 
+
+        window.onload = () => {
+            const savedEmpNo = localStorage.getItem('ttp_empNo');
+            if(savedEmpNo) { document.getElementById('empNo').value = savedEmpNo; login(); }
+        };
+
+        function getRawNumber(val) { return parseFloat(val.toString().replace(/,/g, '')) || 0; }
+        function formatCurrency(num) { return '₱' + parseFloat(num || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+        function applyFormat(el) { el.value = getRawNumber(el.value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); computeDailyTotal(); }
+        function cleanFormat(el) { let val = getRawNumber(el.value); el.value = val === 0 ? '' : val; }
+        
+        function formatFormalDate(dateStr) {
+            if (!dateStr) return "N/A";
+            let d = new Date(dateStr);
+            if(isNaN(d.getTime())) return dateStr; 
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function showBtnLoader(btnId, spinnerId, isLoading, originalText) {
+            const btn = document.getElementById(btnId);
+            const spin = document.getElementById(spinnerId);
+            if (isLoading) {
+                btn.disabled = true; btn.classList.add('opacity-75', 'cursor-wait');
+                spin.classList.remove('hidden'); btn.querySelector('span').innerText = "Wait...";
+            } else {
+                btn.disabled = false; btn.classList.remove('opacity-75', 'cursor-wait');
+                spin.classList.add('hidden'); btn.querySelector('span').innerText = originalText;
+            }
+        }
+
+        // BAGONG API CALLER: Nakakasiguro kung sa GitHub o sa GAS ito nanggagaling
+        function apiCall(action, payload) {
+            return new Promise(async (resolve, reject) => {
+                if (GAS_WEB_APP_URL !== 'ILAGAY_DITO_ANG_IYONG_WEB_APP_URL') {
+                    // GITHUB PAGES MODE (External Fetch)
+                    try {
+                        let response = await fetch(GAS_WEB_APP_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: action, payload: payload }),
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } // text/plain para iwas CORS preflight block
+                        });
+                        let data = await response.json();
+                        resolve(data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    // GOOGLE APPS SCRIPT MODE (Direct Run)
+                    google.script.run
+                        .withSuccessHandler(res => { try { resolve(JSON.parse(res)); } catch (e) { resolve(res); } })
+                        .withFailureHandler(err => reject(err)).handleFrontendRequest(action, payload);
+                } else {
+                    reject(new Error("Local environment detected. Ilagay ang tunay na GAS Web App URL sa script."));
+                }
+            });
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+            document.getElementById(viewId).classList.add('active-view');
+        }
+
+        function logout() {
+            localStorage.removeItem('ttp_empNo');
+            currentUser = null;
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('empNo').value = '';
+            timersArray.forEach(clearInterval); 
+            switchView('loginView');
+        }
+
+        async function login() {
+            const empNo = document.getElementById('empNo').value.trim();
+            if (!empNo) { Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Ilagay ang Employee Number.' }); return; }
+            showBtnLoader('btnLogin', 'loginSpinner', true, 'Mag-Patuloy');
+            try {
+                let result = await apiCall('verifyUser', { empNo: empNo });
+                showBtnLoader('btnLogin', 'loginSpinner', false, 'Mag-Patuloy');
+                if (result && result.status === 'success') {
+                    localStorage.setItem('ttp_empNo', empNo); 
+                    currentUser = result.data;
+                    document.getElementById('displayUserName').innerText = `${currentUser.name} (${currentUser.role})`;
+                    document.getElementById('userInfo').classList.remove('hidden');
+                    if (currentUser.role === 'Audit') loadAuditDashboard();
+                    else loadNormalDashboard();
+                } else {
+                    localStorage.removeItem('ttp_empNo');
+                    Swal.fire({ icon: 'error', title: 'Error', text: (result && result.message) ? result.message : "Hindi natagpuan." });
+                }
+            } catch(e) {
+                showBtnLoader('btnLogin', 'loginSpinner', false, 'Mag-Patuloy');
+                Swal.fire({ icon: 'error', title: 'Network Error', text: e.message });
+            }
+        }
+
+        function calculateDueTimer(endDateStr, timerElementId) {
+            let el = document.getElementById(timerElementId);
+            if (!el) return null;
+            if (!endDateStr) { el.innerHTML = "<span class='text-slate-400'>No End Date</span>"; return null; }
+            let end = new Date(endDateStr);
+            let due = new Date(end.getTime() + (24 * 60 * 60 * 1000));
+            if (due.getDay() === 0) due.setDate(due.getDate() + 1); 
+            let exactDateFormatted = due.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+            let interval = setInterval(() => {
+                let now = new Date().getTime();
+                let dist = due.getTime() - now;
+                let elem = document.getElementById(timerElementId);
+                if (!elem) { clearInterval(interval); return; }
+                if (dist < 0) {
+                    elem.innerHTML = `<div class="flex items-center text-red-600 font-black tracking-widest text-lg"><i class="fa-solid fa-bomb animate-pulse mr-2 text-2xl"></i> OVERDUE</div><div class="text-[9px] text-red-400 mt-1">Due was: ${exactDateFormatted}</div>`;
+                    clearInterval(interval);
+                } else {
+                    let d = Math.floor(dist / (1000 * 60 * 60 * 24)), h = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)), m = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+                    elem.innerHTML = `<div class="flex flex-col w-full"><div class="flex items-center justify-between text-red-500 font-bold tracking-wide text-sm mb-1"><span>${d}d ${h}h ${m}m</span><i class="fa-solid fa-bomb ml-2 text-lg"></i></div><div class="fuse-container"><div class="fuse-burn"></div><i class="fa-solid fa-fire fuse-spark"></i></div><div class="text-[9px] text-slate-500 mt-1 text-right">Due on: ${exactDateFormatted}</div></div>`;
+                }
+            }, 1000);
+            timersArray.push(interval);
+        }
+
+        async function loadNormalDashboard() {
+            switchView('normalDashboardView');
+            const container = document.getElementById('projectListContainer');
+            container.innerHTML = '<div class="col-span-full text-center text-slate-500 py-10"><i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 block"></i>Kinukuha ang Payout Records...</div>';
+            timersArray.forEach(clearInterval); timersArray = [];
+            try {
+                let result = await apiCall('getProjects', { empNo: currentUser.empNo, role: currentUser.role });
+                if (result && result.status === 'success') {
+                    let projects = result.data;
+                    container.innerHTML = '';
+                    if (!projects || projects.length === 0) container.innerHTML = '<p class="text-slate-500 col-span-full font-bold">Wala pang recordbook. Gumawa ng bago.</p>';
+                    else {
+                        let fragment = document.createDocumentFragment();
+                        projects.forEach((proj, i) => {
+                            let isClosed = proj.status !== 'OPEN';
+                            let timerId = `n-timer-${i}`;
+                            let card = document.createElement('div');
+                            card.className = `bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-md border ${isClosed ? 'border-slate-300 dark:border-slate-700 opacity-80' : 'border-blue-500'} relative hover:shadow-lg transition cursor-pointer`;
+                            
+                            let projStr = encodeURIComponent(JSON.stringify(proj));
+                            card.onclick = () => viewProjectDetailsModal(projStr);
+                            
+                            card.innerHTML = `
+                                <div class="flex justify-between items-start mb-2"><h3 class="font-black text-xl truncate pr-4 text-slate-800 dark:text-white uppercase">${proj.name}</h3><span class="text-[10px] px-2.5 py-1 rounded-md font-black uppercase tracking-wider ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></div>
+                                <p class="text-xs font-bold text-slate-500 mb-5"><i class="fa-regular fa-calendar mr-1"></i> ${formatFormalDate(proj.startDate)} — ${formatFormalDate(proj.endDate)}</p>
+                                <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border dark:border-slate-700 flex justify-between items-center mb-5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rem. Fund</span><span class="font-black text-2xl text-slate-800 dark:text-white">${formatCurrency(proj.remaining)}</span></div>
+                                ${!isClosed ? `<div class="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800/50 mb-5 w-full"><div id="${timerId}" class="w-full">--:--</div></div>` : `<p class="text-[10px] text-slate-500 font-bold mb-5 uppercase tracking-wide"><i class="fa-solid fa-lock mr-1"></i>Audited by: ${proj.closedBy}</p>`}
+                                <button onclick="event.stopPropagation(); ${!isClosed ? `openDailyLiquidation('${proj.id}', '${proj.name.replace(/'/g, "\\'")}', ${proj.initialFund},${proj.expenses}, ${proj.replenished},${proj.remaining})` : `Swal.fire('Audited','Hindi na maaaring dagdagan ang audited record.','info')`}" class="w-full ${!isClosed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 dark:bg-slate-700'} text-white py-3 rounded-xl font-black uppercase tracking-wide transition">${!isClosed ? '<i class="fa-solid fa-pen-to-square mr-2"></i>Buksan ang Payout' : '<i class="fa-solid fa-check-double mr-2"></i>Audited Na'}</button>
+                            `;
+                            fragment.appendChild(card);
+                        });
+                        container.appendChild(fragment);
+                        projects.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.endDate, `n-timer-${i}`); });
+                    }
+                } else container.innerHTML = `<p class="text-red-500 font-bold">Error: ${result ? result.message : 'Unknown error'}</p>`;
+            } catch (err) { container.innerHTML = `<p class="text-red-500 font-bold">Failed to load network.</p>`; }
+        }
+
+        async function loadAuditDashboard() {
+            switchView('auditDashboardView');
+            const tbody = document.getElementById('auditProjectList');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-slate-500"><i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 block"></i>Kumukuha ng Data...</td></tr>';
+            timersArray.forEach(clearInterval); timersArray = [];
+            try {
+                let result = await apiCall('getProjects', { empNo: currentUser.empNo, role: currentUser.role });
+                if (result && result.status === 'success') {
+                    allAuditProjects = result.data; 
+                    renderAuditTable(allAuditProjects);
+                } else tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-red-500 font-bold">May error: ${result ? result.message : 'Wala'}</td></tr>`;
+            } catch (err) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-red-500 font-bold">Network failed.</td></tr>'; }
+        }
+
+        function filterAuditTable() {
+            let term = document.getElementById('auditSearchInput').value.toLowerCase();
+            let filtered = allAuditProjects.filter(p => p.name.toLowerCase().includes(term) || p.empNo.toString().toLowerCase().includes(term));
+            renderAuditTable(filtered);
+        }
+
+        function renderAuditTable(projectsData) {
+            const tbody = document.getElementById('auditProjectList');
+            tbody.innerHTML = '';
+            timersArray.forEach(clearInterval); timersArray = []; 
+            if(!projectsData || projectsData.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 font-bold text-slate-500">Walang nakitang record.</td></tr>'; return; }
+            let fragment = document.createDocumentFragment();
+            projectsData.forEach((proj, i) => {
+                let isClosed = proj.status !== 'OPEN';
+                let isReimbursed = proj.remaining < 0;
+                let timerId = `a-timer-${i}`;
+                let tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${isClosed ? 'opacity-70' : ''}`;
+                
+                let projStr = encodeURIComponent(JSON.stringify(proj));
+                tr.onclick = () => viewProjectDetailsModal(projStr);
+                
+                tr.innerHTML = `
+                    <td class="p-4"><p class="font-black text-blue-600 dark:text-blue-400 uppercase text-sm">${proj.name}</p><p class="text-[10px] font-bold text-slate-500 uppercase mt-1">Rem: <span class="${isReimbursed ? 'text-red-500' : 'text-slate-800 dark:text-white'}">${formatCurrency(proj.remaining)}</span></p></td>
+                    <td class="p-4"><p class="font-bold text-slate-700 dark:text-slate-300 text-xs"><i class="fa-solid fa-user-tag text-slate-400 mr-1"></i>${proj.empNo}</p></td>
+                    <td class="p-4"><p class="text-[10px] font-bold text-slate-500 mb-1">${formatFormalDate(proj.startDate)} - ${formatFormalDate(proj.endDate)}</p><span class="text-[10px] px-2 py-1 rounded font-black uppercase tracking-widest ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></td>
+                    <td class="p-4 align-middle w-48">${!isClosed ? `<div id="${timerId}" class="w-full">--:--</div>` : `<div class="text-[9px] font-bold text-slate-500"><i class="fa-solid fa-check-double mr-1 text-emerald-500"></i>Audited by: ${proj.closedBy}<br/>${proj.changeInDetails ? `<span class="text-blue-500">Ref: ${proj.changeInDetails}</span>` : ''}</div>`}</td>
+                    <td class="p-4 text-right align-middle">${!isClosed ? `<button onclick="event.stopPropagation(); markProjectAuditedAction('${proj.id}',${proj.remaining})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow transition w-full">CLOSE PROJECT</button>` : `<span class="text-[10px] font-bold text-slate-400"><i class="fa-solid fa-lock text-xl"></i></span>`}</td>
+                `;
+                fragment.appendChild(tr);
+            });
+            tbody.appendChild(fragment);
+            projectsData.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.endDate, `a-timer-${i}`); });
+        }
+
+        async function saveInitRef(projectId) {
+            let refNo = document.getElementById('initFundRefInput').value;
+            let btn = document.getElementById('btnSaveInitRef');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                let res = await apiCall('updateInitFundRef', { projectId: projectId, refNo: refNo });
+                if(res && res.status === 'success') {
+                    Swal.fire('Saved', 'Na-save na ang Initial Fund Ref.', 'success').then(() => {
+                        loadAuditDashboard(); Swal.close();
+                    });
+                } else Swal.fire('Error', res.message, 'error');
+            } catch(e) { Swal.fire('Error', e.message, 'error'); }
+            btn.innerHTML = 'I-save';
+        }
+
+        async function saveRepRef(logId) {
+            let refInput = document.getElementById(`repRef_${logId}`);
+            let refNo = refInput.value;
+            let btn = refInput.nextElementSibling;
+            let origText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                let res = await apiCall('updateReplenishRef', { logId: logId, refNo: refNo });
+                if(res && res.status === 'success') {
+                    btn.innerHTML = 'Saved';
+                    btn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                    setTimeout(() => {
+                        btn.innerHTML = 'Save';
+                        btn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                    }, 2000);
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                    btn.innerHTML = origText;
+                }
+            } catch(e) {
+                Swal.fire('Error', e.message, 'error');
+                btn.innerHTML = origText;
+            }
+        }
+
+        async function viewProjectDetailsModal(encodedProj) {
+            let proj = JSON.parse(decodeURIComponent(encodedProj));
+            Swal.fire({ title: 'Nagloload...', html: 'Kinukuha ang detalye...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            try {
+                let res = await apiCall('getProjectDetails', { projectId: proj.id });
+                if (res && res.status === 'success') {
+                    let logs = res.data;
+                    let isAudit = currentUser.role === 'Audit';
+                    let tableHeaders = isAudit 
+                        ? `<tr><th class="p-3">Petsa</th><th class="p-3 w-1/3">Breakdown ng Expenses</th><th class="p-3 text-right text-red-500">Total Exp.</th><th class="p-3 text-center">Resibo</th><th class="p-3 text-center">Action</th></tr>` 
+                        : `<tr><th class="p-3">Petsa</th><th class="p-3 text-right">Transpo</th><th class="p-3 text-right">Meals</th><th class="p-3 text-right">Materials</th><th class="p-3 text-right text-red-500">Total Exp.</th><th class="p-3 text-center">Resibo</th><th class="p-3 text-center">Action</th></tr>`;
+                    
+                    let initFundHtml = "";
+                    if(isAudit && proj.status === 'OPEN') {
+                        initFundHtml = `
+                        <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between mb-4 border border-blue-200 dark:border-blue-800">
+                            <div class="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase mb-2 md:mb-0">Initial Fund Ref No:</div>
+                            <div class="flex w-full md:w-auto space-x-2">
+                                <input type="text" id="initFundRefInput" value="${proj.initFundRef || ''}" class="px-3 py-1.5 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg text-xs w-full md:w-48 font-bold" placeholder="Ref No...">
+                                <button id="btnSaveInitRef" onclick="saveInitRef('${proj.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow transition">I-save</button>
+                            </div>
+                        </div>`;
+                    } else if (proj.initFundRef) {
+                        initFundHtml = `<div class="text-xs font-bold text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded">Initial Fund Ref No: <span class="text-slate-800 dark:text-white">${proj.initFundRef}</span></div>`;
+                    }
+
+                    let tableHtml = initFundHtml + `<div class="overflow-x-auto max-h-[60vh] text-left custom-scrollbar"><table class="w-full text-xs border-collapse"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase tracking-wider text-[10px] text-slate-500 border-b dark:border-slate-700">${tableHeaders}</thead><tbody class="divide-y dark:divide-slate-700">`;
+                    
+                    if(!logs || logs.length === 0) tableHtml += `<tr><td colspan="${isAudit ? '5' : '7'}" class="p-6 text-center font-bold text-slate-500 uppercase">Walang record ng liquidation.</td></tr>`;
+                    else {
+                        logs.forEach(l => {
+                            let rLinks = 'N/A';
+                            if(l.receiptUrls && l.receiptUrls.length > 0) { rLinks = l.receiptUrls.map((url, idx) => `<a href="${url}" target="_blank" class="text-blue-500 font-bold hover:underline mx-1">[${idx+1}]</a>`).join(''); }
+                            
+                            let actionBtn = "";
+                            let safeLog = encodeURIComponent(JSON.stringify(l));
+                            if (l.isAudited) {
+                                actionBtn = `<span class="text-emerald-500 font-bold tracking-wider text-[9px] block"><i class="fa-solid fa-lock mr-1"></i>AUDITED BY</span><span class="text-[10px] font-black text-slate-700 dark:text-slate-300 block">${l.auditedBy || 'Auditor'}</span>`;
+                            } else {
+                                if (isAudit) actionBtn = `<button onclick="auditSingleDayAction('${l.logId}', '${encodedProj}')" class="bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow">FOR AUDIT</button>`;
+                                else actionBtn = `<button onclick="editLogMode('${safeLog}', '${encodedProj}')" class="bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow"><i class="fa-solid fa-pen mr-1"></i>Edit</button>`;
+                            }
+
+                            if (isAudit) {
+                                let breakdownHtml = `<div class="text-[10px] text-slate-600 dark:text-slate-400 space-y-1">`;
+                                if(l.transpoArr && l.transpoArr.length > 0) {
+                                    breakdownHtml += `<div><span class="font-bold text-blue-500 uppercase">Transpo:</span><ul class="list-disc pl-4 mb-1">`;
+                                    l.transpoArr.forEach(t => breakdownHtml += `<li>${t.from} to ${t.to} : ₱${t.amount}</li>`);
+                                    breakdownHtml += `</ul></div>`;
+                                }
+                                if(l.mealsTotal > 0) breakdownHtml += `<div><span class="font-bold text-orange-500 uppercase">Meals:</span> ₱${l.mealsTotal}</div>`;
+                                if(l.materialsArr && l.materialsArr.length > 0) {
+                                    breakdownHtml += `<div><span class="font-bold text-emerald-500 uppercase">Materials:</span><ul class="list-disc pl-4 mt-1">`;
+                                    l.materialsArr.forEach(m => breakdownHtml += `<li>${m.item} : ₱${m.amount}</li>`);
+                                    breakdownHtml += `</ul></div>`;
+                                }
+                                
+                                if(l.replenishAmount > 0) {
+                                    if (proj.status === 'OPEN') {
+                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50">
+                                            <span class="font-bold text-emerald-600 uppercase">Replenished:</span> ₱${formatCurrency(l.replenishAmount).replace('₱','')}<br>
+                                            <div class="flex space-x-1 mt-1">
+                                                <input type="text" id="repRef_${l.logId}" value="${l.replenishRef || ''}" placeholder="Ref No..." class="px-2 py-1 text-[10px] w-full border rounded">
+                                                <button onclick="saveRepRef('${l.logId}')" class="bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold">Save</button>
+                                            </div>
+                                        </div>`;
+                                    } else {
+                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50"><span class="font-bold text-emerald-600 uppercase">Replenished:</span> ₱${formatCurrency(l.replenishAmount).replace('₱','')}<br><span class="text-[9px] font-bold text-slate-500 uppercase">Ref: ${l.replenishRef || 'Walang nai-input'}</span></div>`;
+                                    }
+                                }
+                                breakdownHtml += `</div>`;
+
+                                tableHtml += `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                    <td class="p-3 font-bold align-top">${formatFormalDate(l.date)}</td>
+                                    <td class="p-3 align-top leading-tight">${breakdownHtml}</td>
+                                    <td class="p-3 text-right font-black text-red-500 align-top">${formatCurrency(l.dailyTotal)}</td>
+                                    <td class="p-3 text-center text-lg align-top">${rLinks}</td>
+                                    <td class="p-3 text-center align-top">${actionBtn}</td>
+                                </tr>`;
+                            } else {
+                                tableHtml += `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                    <td class="p-3 font-bold">${formatFormalDate(l.date)}</td>
+                                    <td class="p-3 text-right">${formatCurrency(l.transpoTotal)}</td>
+                                    <td class="p-3 text-right">${formatCurrency(l.mealsTotal)}</td>
+                                    <td class="p-3 text-right">${formatCurrency(l.materialsTotal)}</td>
+                                    <td class="p-3 text-right font-black text-red-500">${formatCurrency(l.dailyTotal)}</td>
+                                    <td class="p-3 text-center text-lg">${rLinks}</td>
+                                    <td class="p-3 text-center">${actionBtn}</td>
+                                </tr>`;
+                            }
+                        });
+                    }
+                    tableHtml += `</tbody></table></div>`;
+                    // Dito nilagay ang 'swal-wide' para mag-expand sa desktop nang hanggang 1000px
+                    Swal.fire({ title: `<span class="text-xl font-black uppercase tracking-tight">${proj.name}</span>`, html: tableHtml, width: '95%', customClass: { popup: 'swal-wide' }, showCloseButton: true, confirmButtonText: 'ISARA', confirmButtonColor: '#334155' });
+                } else Swal.fire('Error', res ? res.message : 'Hindi makuha ang detalye.', 'error');
+            } catch (err) { Swal.fire('Error', 'Network Error.', 'error'); }
+        }
+
+        async function auditSingleDayAction(logId, encodedProj) {
+            let res = await Swal.fire({ title: 'I-Audit ang Araw na ito?', text: "Kapag na-audit, malalagyan ito ng iyong pangalan at hindi na ito mae-edit ng user.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#64748b', confirmButtonText: 'Oo, Audit' });
+            if (res.isConfirmed) {
+                Swal.fire({title: 'Sinisave...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
+                try {
+                    let out = await apiCall('auditSingleLog', { logId: logId, auditorName: currentUser.name });
+                    if(out.status === 'success') {
+                        await loadAuditDashboard();
+                        viewProjectDetailsModal(encodedProj);
+                    } else Swal.fire('Error', out.message, 'error');
+                } catch(e) { Swal.fire('Error', e.message, 'error'); }
+            }
+        }
+
+        function markProjectAuditedAction(id, remainingBal) {
+            let formHtml = `
+                <div class="mt-4 text-left">
+                    <p class="text-sm font-bold text-slate-700 mb-3 uppercase text-center border-b pb-2">Final Balance: <span class="${remainingBal < 0 ? 'text-red-500' : 'text-blue-500'} font-black text-lg ml-2">${formatCurrency(remainingBal)}</span></p>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Amount (Reimburse/Sukli)</label>
+                    <input type="text" id="closeAmount" inputmode="decimal" onfocus="cleanFormat(this)" onblur="applyFormat(this)" class="swal2-input !w-full !mx-0 !text-sm mb-3 currency-input" placeholder="Halaga (ex. 150.00)" value="${Number(Math.abs(remainingBal)).toLocaleString('en-US',{minimumFractionDigits:2})}">
+                    <label class="text-xs font-bold text-slate-500 uppercase">Transaction / Ref Number</label>
+                    <input type="text" id="closeTransNo" class="swal2-input !w-full !mx-0 !text-sm" placeholder="Reference Number">
+                </div>
+            `;
+            Swal.fire({
+                title: 'Isara at Mark Audited ang Project?', 
+                html: formHtml, 
+                icon: 'warning', showCancelButton: true, width: '90%', confirmButtonColor: '#dc2626', cancelButtonColor: '#64748b', confirmButtonText: 'Oo, Isara Project',
+                preConfirm: () => { 
+                    let amt = getRawNumber(document.getElementById('closeAmount').value);
+                    let ref = document.getElementById('closeTransNo').value;
+                    if(!ref) { Swal.showValidationMessage("Paki-lagay ang Transaction / Ref Number"); }
+                    return { amount: amt, transNo: ref } 
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({title: 'Sinisave...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
+                    let res = await apiCall('markAudited', { projectId: id, userName: currentUser.name, auditData: result.value });
+                    if(res && res.status === 'success') { Swal.fire('Audited!', 'Nakasara at nai-audit na ang payout.', 'success'); loadAuditDashboard(); } 
+                    else Swal.fire('Error', res ? res.message : 'Unknown error', 'error');
+                }
+            });
+        }
+
+        function showCreateProject() {
+            document.getElementById('projName').value = ''; document.getElementById('projDesc').value = ''; document.getElementById('projStart').value = ''; document.getElementById('projEnd').value = ''; document.getElementById('initialFund').value = '0.00'; switchView('createProjectView');
+        }
+
+        async function createProject() {
+            const name = document.getElementById('projName').value, desc = document.getElementById('projDesc').value, start = document.getElementById('projStart').value, end = document.getElementById('projEnd').value, fund = getRawNumber(document.getElementById('initialFund').value);
+            if(!name || !start || !end || fund <= 0) { Swal.fire('Kulang','Punan ang Name, Dates at Initial Fund.','warning'); return; }
+            if(new Date(start) > new Date(end)) { Swal.fire('Error','Ang Start Date ay dapat mauna kaysa End Date.','error'); return; }
+            showBtnLoader('btnCreateProj', 'createSpinner', true, 'I-save Payout');
+            try {
+                let result = await apiCall('createProject', { empNo: currentUser.empNo, name: name, desc: desc, initialFund: fund, startDate: start, endDate: end });
+                showBtnLoader('btnCreateProj', 'createSpinner', false, 'I-save Payout');
+                if(result && result.status === 'success') { Swal.fire('Success!', 'Nagawa na ang Payout Record.', 'success'); loadNormalDashboard(); } else Swal.fire('Error', result ? result.message : 'Unknown error', 'error');
+            } catch(e) { showBtnLoader('btnCreateProj', 'createSpinner', false, 'I-save Payout'); Swal.fire('Error', 'May aberya sa network.', 'error'); }
+        }
+
+        function editLogMode(encodedLog, encodedProj) {
+            let log = JSON.parse(decodeURIComponent(encodedLog));
+            let proj = JSON.parse(decodeURIComponent(encodedProj));
+            Swal.close(); 
+            openDailyLiquidation(proj.id, proj.name, proj.initialFund, proj.expenses, proj.replenished, proj.remaining, log);
+        }
+
+        function openDailyLiquidation(id, name, init, exp, rep, rem, logToEdit = null) {
+            activeProjectInfo = { id, init, exp, rep, rem };
+            
+            if (logToEdit) {
+                activeLogId = logToEdit.logId;
+                activeProjectInfo.rem = (activeProjectInfo.rem + logToEdit.dailyTotal) - (logToEdit.replenishAmount || 0);
+            } else { activeLogId = null; }
+            
+            document.getElementById('activeProjName').innerText = name;
+            document.getElementById('summaryInitial').innerText = formatCurrency(init);
+            document.getElementById('summaryExpense').innerText = formatCurrency(exp);
+            document.getElementById('summaryReplenish').innerText = formatCurrency(rep);
+            
+            document.getElementById('formTitle').innerHTML = logToEdit ? '<i class="fa-solid fa-pen-to-square text-amber-500 mr-2"></i>I-edit ang Liquidation' : 'Daily Liquidation Entry';
+            document.getElementById('btnSubmitLog').querySelector('span').innerText = logToEdit ? "I-update ang Data" : "I-submit ang Liquidation";
+            
+            let remEl = document.getElementById('summaryRemaining');
+            remEl.innerText = formatCurrency(rem);
+            if(rem < 0) { remEl.classList.add('text-red-600'); remEl.classList.remove('text-amber-600'); }
+            else { remEl.classList.remove('text-red-600'); remEl.classList.add('text-amber-600'); }
+            
+            document.getElementById('transpoContainer').innerHTML = '';
+            document.getElementById('materialsContainer').innerHTML = '';
+            document.getElementById('entryReceipts').value = '';
+
+            if (logToEdit) {
+                let d = new Date(logToEdit.date);
+                let yyyy = d.getFullYear(); let mm = String(d.getMonth() + 1).padStart(2, '0'); let dd = String(d.getDate()).padStart(2, '0');
+                document.getElementById('entryDate').value = `${yyyy}-${mm}-${dd}`;
+                
+                document.getElementById('entryMeals').value = logToEdit.mealsTotal; applyFormat(document.getElementById('entryMeals'));
+                document.getElementById('entryReplenish').value = logToEdit.replenishAmount || 0; applyFormat(document.getElementById('entryReplenish'));
+                
+                document.getElementById('editReceiptHint').classList.remove('hidden');
+
+                if (logToEdit.transpoArr && logToEdit.transpoArr.length > 0) logToEdit.transpoArr.forEach(t => addTranspoRow(t.from, t.to, t.amount));
+                else addTranspoRow();
+                if (logToEdit.materialsArr && logToEdit.materialsArr.length > 0) logToEdit.materialsArr.forEach(m => addMaterialRow(m.item, m.amount));
+                else addMaterialRow();
+
+            } else {
+                let today = new Date();
+                let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
+                document.getElementById('entryDate').value = `${yyyy}-${mm}-${dd}`;
+                
+                document.getElementById('entryMeals').value = '0.00';
+                document.getElementById('entryReplenish').value = '0.00';
+                document.getElementById('editReceiptHint').classList.add('hidden');
+                addTranspoRow(); addMaterialRow();
+            }
+            
+            computeDailyTotal();
+            switchView('dailyEntryView');
+        }
+
+        function addTranspoRow(fromVal = "", toVal = "", amtVal = "0.00") {
+            const div = document.createElement('div');
+            div.className = "flex space-x-2 transpo-row animate-[fadeIn_0.3s_ease-out]";
+            div.innerHTML = `
+                <input type="text" placeholder="From" value="${fromVal}" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold t-from dark:text-white uppercase">
+                <input type="text" placeholder="To" value="${toVal}" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold t-to dark:text-white uppercase">
+                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 t-amt comp-trigger dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
+                <button onclick="this.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>`;
+            document.getElementById('transpoContainer').appendChild(div);
+        }
+
+        function addMaterialRow(itemVal = "", amtVal = "0.00") {
+            const div = document.createElement('div');
+            div.className = "flex space-x-2 mat-row animate-[fadeIn_0.3s_ease-out]";
+            div.innerHTML = `
+                <input type="text" placeholder="Item Name" value="${itemVal}" class="w-2/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold m-item dark:text-white uppercase">
+                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 m-amt comp-trigger dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
+                <button onclick="this.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>`;
+            document.getElementById('materialsContainer').appendChild(div);
+        }
+
+        function computeDailyTotal() {
+            let meals = getRawNumber(document.getElementById('entryMeals').value);
+            let replenish = getRawNumber(document.getElementById('entryReplenish').value);
+            let transpoTotal = 0; document.querySelectorAll('.t-amt').forEach(el => transpoTotal += getRawNumber(el.value));
+            let matTotal = 0; document.querySelectorAll('.m-amt').forEach(el => matTotal += getRawNumber(el.value));
+            
+            let dailyExpense = meals + transpoTotal + matTotal;
+            document.getElementById('todayTotalExp').innerText = formatCurrency(dailyExpense);
+            let newOutstanding = (activeProjectInfo.rem - dailyExpense) + replenish;
+            let outEl = document.getElementById('todayOutstanding');
+            outEl.innerText = formatCurrency(newOutstanding);
+            if(newOutstanding < 0) { outEl.classList.remove('text-amber-400'); outEl.classList.add('text-red-500'); outEl.innerHTML += ` <span class="block text-[9px] text-red-500 uppercase mt-1">(For Reimbursement)</span>`; } 
+            else { outEl.classList.add('text-amber-400'); outEl.classList.remove('text-red-500'); }
+        }
+
+        async function submitDailyLog() {
+            const fileInput = document.getElementById('entryReceipts');
+            if (fileInput.files.length > 5) { Swal.fire('Limit Reached', 'Hanggang 5 resibo lamang ang maaari i-attach.', 'warning'); return; }
+            let transpoArray = [];
+            document.querySelectorAll('.transpo-row').forEach(row => {
+                let from = row.querySelector('.t-from').value, to = row.querySelector('.t-to').value, amt = getRawNumber(row.querySelector('.t-amt').value);
+                if(amt > 0) transpoArray.push({from, to, amount: amt});
+            });
+            let materialsArray = [];
+            document.querySelectorAll('.mat-row').forEach(row => {
+                let item = row.querySelector('.m-item').value, amt = getRawNumber(row.querySelector('.m-amt').value);
+                if(amt > 0) materialsArray.push({item, amount: amt});
+            });
+
+            let replenishAmount = getRawNumber(document.getElementById('entryReplenish').value);
+
+            let payload = {
+                projectId: activeProjectInfo.id,
+                logId: activeLogId,
+                date: document.getElementById('entryDate').value,
+                mealsAmount: getRawNumber(document.getElementById('entryMeals').value),
+                replenishmentAmount: replenishAmount,
+                replenishRef: "",
+                transpoArray: transpoArray, materialsArray: materialsArray, receipts: [],
+                role: currentUser.role 
+            };
+
+            showBtnLoader('btnSubmitLog', 'submitSpinner', true, activeLogId ? 'Nag-uupdate...' : 'Nagsa-save...');
+            if (fileInput.files.length > 0) {
+                let promises = Array.from(fileInput.files).map(file => {
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve({ base64: reader.result.split(',')[1], mimeType: file.type });
+                        reader.readAsDataURL(file);
+                    });
+                });
+                payload.receipts = await Promise.all(promises);
+            }
+
+            try {
+                let result = await apiCall('saveDailyLog', payload);
+                showBtnLoader('btnSubmitLog', 'submitSpinner', false, activeLogId ? "I-update ang Data" : "I-submit ang Liquidation");
+                if (result && result.status === 'success') { Swal.fire('Nai-save!', 'Matagumpay na naitala ang liquidation.', 'success'); loadNormalDashboard(); } 
+                else Swal.fire('Error', result ? result.message : 'Unknown error', 'error');
+            } catch(e) { showBtnLoader('btnSubmitLog', 'submitSpinner', false, activeLogId ? "I-update ang Data" : "I-submit ang Liquidation"); Swal.fire('Error', 'Pumalya ang pag-save. Network issue.', 'error'); }
+        }
+    </script>
+</body>
+</html>
