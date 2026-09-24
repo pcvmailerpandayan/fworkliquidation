@@ -1,5 +1,5 @@
 <!-- ================================================================= -->
-<!-- INDEX.HTML (FRONTEND) - GITHUB READY (IMPROVED V4 WITH OPTIMIZATIONS) -->
+<!-- INDEX.HTML (FRONTEND) - V6 WITH AUDIT RECON & DASHBOARD BREAKDOWN -->
 <!-- ================================================================= -->
 <!DOCTYPE html>
 <html lang="tl" class="dark:bg-slate-900">
@@ -14,8 +14,6 @@
     <style>
         .view-section { display: none; }
         .active-view { display: block; }
-        
-        /* CSS FIX PARA SA MODAL WIDTH AT RESPONSIVENESS */
         .swal2-popup { border-radius: 1rem !important; }
         .swal2-popup:not(.swal-wide) { width: 95% !important; max-width: 500px !important; }
         .swal-wide { width: 95% !important; max-width: 1000px !important; }
@@ -102,9 +100,19 @@
                         <input type="date" id="projEnd" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white">
                     </div>
                 </div>
+                <div class="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border dark:border-blue-800/50">
+                    <div>
+                        <label class="block text-xs font-black mb-1 text-blue-700 dark:text-blue-300 uppercase">Meal Fund ₱</label>
+                        <input type="text" inputmode="decimal" id="initialMealFund" onfocus="cleanFormat(this)" onblur="applyFormat(this); computeTotalInit()" class="w-full px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg dark:text-white currency-input font-bold" value="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black mb-1 text-blue-700 dark:text-blue-300 uppercase">Materials/Others ₱</label>
+                        <input type="text" inputmode="decimal" id="initialMatFund" onfocus="cleanFormat(this)" onblur="applyFormat(this); computeTotalInit()" class="w-full px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg dark:text-white currency-input font-bold" value="0.00">
+                    </div>
+                </div>
                 <div>
-                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Initial Fund ₱</label>
-                    <input type="text" inputmode="decimal" id="initialFund" onfocus="cleanFormat(this)" onblur="applyFormat(this)" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white currency-input text-lg font-bold" value="0.00">
+                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Total Initial Fund ₱</label>
+                    <input type="text" id="initialFundTotal" class="w-full px-4 py-3 bg-slate-200 dark:bg-slate-700 border dark:border-slate-600 rounded-xl dark:text-white currency-input text-lg font-black text-slate-800" value="0.00" disabled>
                 </div>
                 <div class="flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-3 mt-6 pt-4 border-t dark:border-slate-700">
                     <button onclick="switchView('normalDashboardView')" class="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white px-5 py-3 rounded-xl font-bold transition">Kanselahin</button>
@@ -117,30 +125,45 @@
 
         <!-- VIEW 4: DAILY LIQUIDATION ENTRY FORM -->
         <div id="dailyEntryView" class="view-section">
-            <button onclick="switchView(currentUser.role==='Audit' ? 'auditDashboardView' : 'normalDashboardView')" class="mb-4 text-blue-600 dark:text-blue-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i> Bumalik sa Dashboard</button>
+            <button onclick="switchView(currentUser.role==='Audit' || currentUser.role==='Viewer' ? 'auditDashboardView' : 'normalDashboardView')" class="mb-4 text-blue-600 dark:text-blue-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i> Bumalik sa Dashboard</button>
             
             <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-md border-l-4 border-blue-600 mb-6 border dark:border-slate-700">
                 <h3 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight" id="activeProjName">Project Name</h3>
                 <p class="text-sm text-slate-500 mt-1" id="activeProjDesc">Description here</p>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                    <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border dark:border-blue-800/50"><span class="block text-[10px] font-black text-blue-500 uppercase">Initial Fund</span><span class="font-black text-xl text-slate-900 dark:text-white" id="summaryInitial">0.00</span></div>
-                    <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border dark:border-red-800/50"><span class="block text-[10px] font-black text-red-500 uppercase">Total Expenses</span><span class="font-black text-xl text-red-600 dark:text-red-400" id="summaryExpense">0.00</span></div>
-                    <div class="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-xl border dark:border-emerald-800/50"><span class="block text-[10px] font-black text-emerald-600 uppercase">Replenished</span><span class="font-black text-xl text-emerald-600 dark:text-emerald-400" id="summaryReplenish">0.00</span></div>
-                    <div class="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl border dark:border-amber-800/50"><span class="block text-[10px] font-black text-amber-600 uppercase">Remaining Fund</span><span class="font-black text-xl text-amber-600 dark:text-amber-400" id="summaryRemaining">0.00</span></div>
+                    <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border dark:border-blue-800/50">
+                        <span class="block text-[10px] font-black text-blue-500 uppercase">Initial Fund</span>
+                        <span class="font-black text-xl text-slate-900 dark:text-white" id="summaryInitial">0.00</span>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl border dark:border-red-800/50">
+                        <span class="block text-[10px] font-black text-red-500 uppercase">Total Expenses</span>
+                        <span class="font-black text-xl text-red-600 dark:text-red-400" id="summaryExpense">0.00</span>
+                    </div>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-xl border dark:border-emerald-800/50">
+                        <span class="block text-[10px] font-black text-emerald-600 uppercase">Replenished</span>
+                        <span class="font-black text-xl text-emerald-600 dark:text-emerald-400" id="summaryReplenish">0.00</span>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl border dark:border-amber-800/50">
+                        <span class="block text-[10px] font-black text-amber-600 uppercase">Total Remaining Fund</span>
+                        <span class="font-black text-xl text-amber-600 dark:text-amber-400" id="summaryRemaining">0.00</span>
+                        <span class="block text-[9px] text-amber-700 dark:text-amber-500 font-bold mt-1 tracking-wider" id="summaryRemBreakdown">(Meal: 0.00 | Mat: 0.00)</span>
+                    </div>
                 </div>
             </div>
 
             <div class="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-2xl shadow-xl border dark:border-slate-700">
                 <h3 class="text-lg font-black mb-6 border-b dark:border-slate-700 pb-3 text-slate-900 dark:text-white uppercase" id="formTitle">Daily Liquidation Entry</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-                    <div>
-                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Petsa ng Liquidation</label>
-                        <input type="date" id="entryDate" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white font-medium">
+                <div class="mb-6">
+                    <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Petsa ng Liquidation</label>
+                    <input type="date" id="entryDate" class="w-full md:w-1/2 px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white font-medium">
+                </div>
+
+                <div class="mb-6 p-5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="font-black text-slate-700 dark:text-slate-300 uppercase text-sm"><i class="fa-solid fa-utensils text-orange-500 mr-2"></i>Meal Allowance</label>
+                        <button onclick="addMealRow()" class="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-orange-200 transition">+ Add Name (Max 10)</button>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold mb-1 text-slate-500 uppercase">Daily Meal Allowance ₱</label>
-                        <input type="text" inputmode="decimal" id="entryMeals" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl dark:text-white currency-input font-medium text-lg" value="0.00">
-                    </div>
+                    <div id="mealsContainer" class="space-y-3"></div>
                 </div>
 
                 <div class="mb-6 p-5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
@@ -196,7 +219,7 @@
         <!-- VIEW 5: AUDIT DASHBOARD -->
         <div id="auditDashboardView" class="view-section">
             <div class="flex justify-between items-center mb-6 border-b dark:border-slate-700 pb-4">
-                <h2 class="text-2xl font-black text-slate-800 dark:text-white uppercase"><i class="fa-solid fa-shield-halved text-blue-600 mr-3"></i>Audit Center Tracker</h2>
+                <h2 class="text-2xl font-black text-slate-800 dark:text-white uppercase" id="auditDashTitle"><i class="fa-solid fa-shield-halved text-blue-600 mr-3"></i>Project Tracker</h2>
                 <button onclick="loadAuditDashboard(true)" class="text-slate-400 hover:text-blue-500 transition text-sm" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i></button>
             </div>
             
@@ -226,13 +249,10 @@
     <!-- MAIN JAVASCRIPT LOGIC -->
     <script>
         // === GITHUB PAGES & CLOUDFLARE CONFIGURATION ===
-        // 1. Ilagay ang iyong Original Google Apps Script Web App URL rito:
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwJDa5CGBSeDh06X0J1dbhGadCq0Ag0I8b5TQbe8-HcMNPnBJy2dgZsmC7pQVgbZd6J/exec';
         
-        // 2. Kapag naka-setup na ang Cloudflare Worker mo, ilagay ang endpoint URL rito:
-        const CLOUDFLARE_WORKER_URL = 'https://ttp-liquidation-api.pcvmailer-pandayan.workers.dev/'
-        
-        // Gamitin ang Cloudflare kung meron, kung wala ay direktang pupunta sa GAS.
+        // I-paste dito ang Cloudflare Worker URL
+        const CLOUDFLARE_WORKER_URL = 'https://ttp-liquidation-api.pcvmailer.workers.dev'; 
         const ACTIVE_ENDPOINT_URL = CLOUDFLARE_WORKER_URL !== '' ? CLOUDFLARE_WORKER_URL : GAS_WEB_APP_URL;
 
         let currentUser = null;
@@ -258,6 +278,12 @@
             return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
+        function computeTotalInit() {
+            let m = getRawNumber(document.getElementById('initialMealFund').value);
+            let o = getRawNumber(document.getElementById('initialMatFund').value);
+            document.getElementById('initialFundTotal').value = (m+o).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
         function showBtnLoader(btnId, spinnerId, isLoading, originalText) {
             const btn = document.getElementById(btnId);
             const spin = document.getElementById(spinnerId);
@@ -270,7 +296,6 @@
             }
         }
 
-        // CLIENT-SIDE IMAGE COMPRESSION (OPTIMIZATION)
         async function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -294,30 +319,21 @@
             });
         }
 
-        // BAGONG API CALLER: Gumagamit ng Cloudflare URL kapag available
         function apiCall(action, payload) {
             return new Promise(async (resolve, reject) => {
                 if (ACTIVE_ENDPOINT_URL !== 'ILAGAY_DITO_ANG_IYONG_WEB_APP_URL') {
-                    // GITHUB PAGES / CLOUDFLARE MODE (External Fetch)
                     try {
                         let response = await fetch(ACTIVE_ENDPOINT_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: action, payload: payload }),
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' } // text/plain para iwas CORS preflight block
+                            method: 'POST', body: JSON.stringify({ action: action, payload: payload }), headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                         });
                         let data = await response.json();
                         resolve(data);
-                    } catch (error) {
-                        reject(error);
-                    }
+                    } catch (error) { reject(error); }
                 } else if (typeof google !== 'undefined' && google.script && google.script.run) {
-                    // GOOGLE APPS SCRIPT MODE (Direct Run)
                     google.script.run
                         .withSuccessHandler(res => { try { resolve(JSON.parse(res)); } catch (e) { resolve(res); } })
                         .withFailureHandler(err => reject(err)).handleFrontendRequest(action, payload);
-                } else {
-                    reject(new Error("Local environment detected. Ilagay ang tunay na GAS Web App URL sa script."));
-                }
+                } else { reject(new Error("Missing Endpoint.")); }
             });
         }
 
@@ -328,7 +344,7 @@
 
         function logout() {
             localStorage.removeItem('ttp_empNo');
-            sessionStorage.clear(); // Clear cached data
+            sessionStorage.clear();
             currentUser = null;
             document.getElementById('userInfo').classList.add('hidden');
             document.getElementById('empNo').value = '';
@@ -348,7 +364,8 @@
                     currentUser = result.data;
                     document.getElementById('displayUserName').innerText = `${currentUser.name} (${currentUser.role})`;
                     document.getElementById('userInfo').classList.remove('hidden');
-                    if (currentUser.role === 'Audit') loadAuditDashboard();
+                    
+                    if (currentUser.role === 'Audit' || currentUser.role === 'Viewer') loadAuditDashboard();
                     else loadNormalDashboard();
                 } else {
                     localStorage.removeItem('ttp_empNo');
@@ -384,7 +401,6 @@
             timersArray.push(interval);
         }
 
-        // BROWSER CACHING (Stale-while-revalidate for faster dashboard loading)
         async function loadNormalDashboard(forceRefresh = false) {
             switchView('normalDashboardView');
             const container = document.getElementById('projectListContainer');
@@ -395,11 +411,10 @@
 
             if (cachedData && !forceRefresh) {
                 renderProjects(JSON.parse(cachedData), container);
-                // Background update
                 apiCall('getProjects', { empNo: currentUser.empNo, role: currentUser.role }).then(res => {
                     if (res && res.status === 'success') {
                         sessionStorage.setItem(cacheKey, JSON.stringify(res.data));
-                        renderProjects(res.data, container); // Silent refresh
+                        renderProjects(res.data, container);
                     }
                 }).catch(e => console.log("Background fetch failed", e));
             } else {
@@ -432,9 +447,20 @@
                     card.innerHTML = `
                         <div class="flex justify-between items-start mb-2"><h3 class="font-black text-xl truncate pr-4 text-slate-800 dark:text-white uppercase">${proj.name}</h3><span class="text-[10px] px-2.5 py-1 rounded-md font-black uppercase tracking-wider ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></div>
                         <p class="text-xs font-bold text-slate-500 mb-5"><i class="fa-regular fa-calendar mr-1"></i> ${formatFormalDate(proj.startDate)} — ${formatFormalDate(proj.endDate)}</p>
-                        <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border dark:border-slate-700 flex justify-between items-center mb-5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rem. Fund</span><span class="font-black text-2xl text-slate-800 dark:text-white">${formatCurrency(proj.remaining)}</span></div>
+                        
+                        <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border dark:border-slate-700 flex flex-col mb-5">
+                            <div class="flex justify-between items-center w-full">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rem. Fund</span>
+                                <span class="font-black text-2xl text-slate-800 dark:text-white">${formatCurrency(proj.remaining)}</span>
+                            </div>
+                            <div class="flex justify-between text-[10px] mt-2 text-slate-500 font-bold uppercase tracking-wider border-t border-slate-200 dark:border-slate-700 pt-2">
+                                <span>Meal: <span class="text-slate-700 dark:text-slate-300">${formatCurrency(proj.remMeal)}</span></span>
+                                <span>Mat: <span class="text-slate-700 dark:text-slate-300">${formatCurrency(proj.remMat)}</span></span>
+                            </div>
+                        </div>
+
                         ${!isClosed ? `<div class="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800/50 mb-5 w-full"><div id="${timerId}" class="w-full">--:--</div></div>` : `<p class="text-[10px] text-slate-500 font-bold mb-5 uppercase tracking-wide"><i class="fa-solid fa-lock mr-1"></i>Audited by: ${proj.closedBy}</p>`}
-                        <button onclick="event.stopPropagation(); ${!isClosed ? `openDailyLiquidation('${proj.id}', '${proj.name.replace(/'/g, "\\'")}', ${proj.initialFund},${proj.expenses}, ${proj.replenished},${proj.remaining})` : `Swal.fire('Audited','Hindi na maaaring dagdagan ang audited record.','info')`}" class="w-full ${!isClosed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 dark:bg-slate-700'} text-white py-3 rounded-xl font-black uppercase tracking-wide transition">${!isClosed ? '<i class="fa-solid fa-pen-to-square mr-2"></i>Buksan ang Payout' : '<i class="fa-solid fa-check-double mr-2"></i>Audited Na'}</button>
+                        <button onclick="event.stopPropagation(); ${!isClosed ? `openDailyLiquidation('${projStr}')` : `Swal.fire('Audited','Hindi na maaaring dagdagan ang audited record.','info')`}" class="w-full ${!isClosed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 dark:bg-slate-700'} text-white py-3 rounded-xl font-black uppercase tracking-wide transition whitespace-nowrap">${!isClosed ? '<i class="fa-solid fa-pen-to-square mr-2"></i>Buksan ang Payout' : '<i class="fa-solid fa-check-double mr-2"></i>Audited Na'}</button>
                     `;
                     fragment.appendChild(card);
                 });
@@ -445,6 +471,10 @@
 
         async function loadAuditDashboard(forceRefresh = false) {
             switchView('auditDashboardView');
+            document.getElementById('auditDashTitle').innerHTML = currentUser.role === 'Viewer' 
+                ? '<i class="fa-solid fa-eye text-blue-600 mr-3"></i>View-Only Tracker' 
+                : '<i class="fa-solid fa-shield-halved text-blue-600 mr-3"></i>Audit Center Tracker';
+                
             const tbody = document.getElementById('auditProjectList');
             timersArray.forEach(clearInterval); timersArray = [];
             
@@ -459,7 +489,7 @@
                     if (res && res.status === 'success') {
                         allAuditProjects = res.data;
                         sessionStorage.setItem(cacheKey, JSON.stringify(allAuditProjects));
-                        renderAuditTable(allAuditProjects); // Silent refresh
+                        renderAuditTable(allAuditProjects); 
                     }
                 });
             } else {
@@ -487,6 +517,9 @@
             timersArray.forEach(clearInterval); timersArray = []; 
             if(!projectsData || projectsData.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 font-bold text-slate-500">Walang nakitang record.</td></tr>'; return; }
             let fragment = document.createDocumentFragment();
+            
+            let canAction = currentUser.role === 'Audit';
+
             projectsData.forEach((proj, i) => {
                 let isClosed = proj.status !== 'OPEN';
                 let isReimbursed = proj.remaining < 0;
@@ -497,12 +530,27 @@
                 let projStr = encodeURIComponent(JSON.stringify(proj));
                 tr.onclick = () => viewProjectDetailsModal(projStr);
                 
+                let actionCell = "";
+                if (!isClosed) {
+                    if (canAction) {
+                        actionCell = `
+                        <div class="flex flex-col space-y-1.5">
+                            <button onclick="event.stopPropagation(); markProjectAuditedAction('${proj.id}',${proj.remaining})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow transition w-full whitespace-nowrap">CLOSE PROJECT</button>
+                            <button onclick="event.stopPropagation(); openReconModal('${projStr}')" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow transition w-full whitespace-nowrap"><i class="fa-solid fa-scale-balanced mr-1"></i> RECON</button>
+                        </div>`;
+                    } else actionCell = `<span class="text-[10px] font-bold text-slate-400 whitespace-nowrap"><i class="fa-solid fa-eye text-lg"></i></span>`;
+                } else { actionCell = `<span class="text-[10px] font-bold text-slate-400 whitespace-nowrap"><i class="fa-solid fa-lock text-xl"></i></span>`; }
+
                 tr.innerHTML = `
-                    <td class="p-4"><p class="font-black text-blue-600 dark:text-blue-400 uppercase text-sm">${proj.name}</p><p class="text-[10px] font-bold text-slate-500 uppercase mt-1">Rem: <span class="${isReimbursed ? 'text-red-500' : 'text-slate-800 dark:text-white'}">${formatCurrency(proj.remaining)}</span></p></td>
+                    <td class="p-4">
+                        <p class="font-black text-blue-600 dark:text-blue-400 uppercase text-sm">${proj.name}</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase mt-1">Rem: <span class="${isReimbursed ? 'text-red-500' : 'text-slate-800 dark:text-white'}">${formatCurrency(proj.remaining)}</span></p>
+                        <p class="text-[9px] font-bold text-slate-400 mt-0.5">(Meal: ${formatCurrency(proj.remMeal)} | Mat: ${formatCurrency(proj.remMat)})</p>
+                    </td>
                     <td class="p-4"><p class="font-bold text-slate-700 dark:text-slate-300 text-xs"><i class="fa-solid fa-user-tag text-slate-400 mr-1"></i>${proj.empNo}</p></td>
                     <td class="p-4"><p class="text-[10px] font-bold text-slate-500 mb-1">${formatFormalDate(proj.startDate)} - ${formatFormalDate(proj.endDate)}</p><span class="text-[10px] px-2 py-1 rounded font-black uppercase tracking-widest ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></td>
                     <td class="p-4 align-middle w-48">${!isClosed ? `<div id="${timerId}" class="w-full">--:--</div>` : `<div class="text-[9px] font-bold text-slate-500"><i class="fa-solid fa-check-double mr-1 text-emerald-500"></i>Audited by: ${proj.closedBy}<br/>${proj.changeInDetails ? `<span class="text-blue-500">Ref: ${proj.changeInDetails}</span>` : ''}</div>`}</td>
-                    <td class="p-4 text-right align-middle">${!isClosed ? `<button onclick="event.stopPropagation(); markProjectAuditedAction('${proj.id}',${proj.remaining})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow transition w-full">CLOSE PROJECT</button>` : `<span class="text-[10px] font-bold text-slate-400"><i class="fa-solid fa-lock text-xl"></i></span>`}</td>
+                    <td class="p-4 text-right align-middle">${actionCell}</td>
                 `;
                 fragment.appendChild(tr);
             });
@@ -517,9 +565,7 @@
             try {
                 let res = await apiCall('updateInitFundRef', { projectId: projectId, refNo: refNo });
                 if(res && res.status === 'success') {
-                    Swal.fire('Saved', 'Na-save na ang Initial Fund Ref.', 'success').then(() => {
-                        loadAuditDashboard(true); Swal.close();
-                    });
+                    Swal.fire('Saved', 'Na-save na ang Initial Fund Ref.', 'success').then(() => { loadAuditDashboard(true); Swal.close(); });
                 } else Swal.fire('Error', res.message, 'error');
             } catch(e) { Swal.fire('Error', e.message, 'error'); }
             btn.innerHTML = 'I-save';
@@ -536,18 +582,89 @@
                 if(res && res.status === 'success') {
                     btn.innerHTML = 'Saved';
                     btn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                    setTimeout(() => {
-                        btn.innerHTML = 'Save';
-                        btn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                    }, 2000);
-                } else {
-                    Swal.fire('Error', res.message, 'error');
-                    btn.innerHTML = origText;
+                    setTimeout(() => { btn.innerHTML = 'Save'; btn.classList.replace('bg-blue-600', 'bg-emerald-600'); }, 2000);
+                } else { Swal.fire('Error', res.message, 'error'); btn.innerHTML = origText; }
+            } catch(e) { Swal.fire('Error', e.message, 'error'); btn.innerHTML = origText; }
+        }
+
+        function showNextReconRow() {
+            for(let i=0; i<5; i++) {
+                let row = document.getElementById('recon-row-'+i);
+                if(row.style.display === 'none') {
+                    row.style.display = 'flex';
+                    break;
                 }
-            } catch(e) {
-                Swal.fire('Error', e.message, 'error');
-                btn.innerHTML = origText;
             }
+        }
+
+        function openReconModal(encodedProj) {
+            let proj = JSON.parse(decodeURIComponent(encodedProj));
+            let currentRecon = [];
+            try { currentRecon = JSON.parse(proj.reconData || "[]"); } catch(e){}
+
+            let rowsHtml = '';
+            for(let i=0; i<5; i++) {
+                let r = currentRecon[i] || {remarks: '', amount: '', type: 'add'};
+                let display = (i === 0 || r.remarks !== '') ? 'flex' : 'none';
+                let amtStr = r.amount ? Number(r.amount).toLocaleString('en-US',{minimumFractionDigits:2}) : '';
+                rowsHtml += `
+                <div class="space-x-2 mb-2 recon-row" style="display: ${display};" id="recon-row-${i}">
+                    <input type="text" class="w-1/2 px-2 py-2 border dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white rounded text-xs r-remarks" placeholder="Remarks (ex. Overdeclared Transpo)" value="${r.remarks}">
+                    <input type="text" inputmode="decimal" class="w-1/4 px-2 py-2 border dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white rounded text-xs text-right r-amt currency-input" placeholder="Amount" value="${amtStr}" onfocus="cleanFormat(this)" onblur="applyFormat(this)">
+                    <select class="w-1/4 px-2 py-2 border dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white rounded text-xs r-type font-bold">
+                        <option value="add" ${r.type==='add'?'selected':''}>Add (+)</option>
+                        <option value="less" ${r.type==='less'?'selected':''}>Less (-)</option>
+                    </select>
+                </div>`;
+            }
+
+            let modalContent = `
+                <div class="text-left">
+                    <p class="text-[11px] text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded">
+                        <strong>Para saan ito?</strong> Ilagay dito kung may pagkakamali sa liquidation. <br>
+                        • <strong>Add (+)</strong> - Ibig sabihin may ibabalik na balanse sa Remaining Fund.<br>
+                        • <strong>Less (-)</strong> - Ibig sabihin may ibabawas sa Remaining Fund.
+                    </p>
+                    <div id="reconContainer">${rowsHtml}</div>
+                    <button type="button" onclick="showNextReconRow()" class="text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:text-white px-3 py-1.5 rounded mt-2 font-bold transition w-full text-center">+ Add Another Entry</button>
+                </div>
+            `;
+
+            Swal.fire({
+                title: `Audit RECON`,
+                html: modalContent,
+                showCancelButton: true,
+                confirmButtonText: 'I-save Recon',
+                cancelButtonText: 'Kanselahin',
+                confirmButtonColor: '#f59e0b',
+                width: '90%',
+                preConfirm: () => {
+                    let rows = document.querySelectorAll('.recon-row');
+                    let reconArray = [];
+                    rows.forEach(row => {
+                        if(row.style.display !== 'none') {
+                            let rem = row.querySelector('.r-remarks').value;
+                            let amt = getRawNumber(row.querySelector('.r-amt').value);
+                            let typ = row.querySelector('.r-type').value;
+                            if(rem.trim() !== "" || amt > 0) {
+                                reconArray.push({remarks: rem, amount: amt, type: typ});
+                            }
+                        }
+                    });
+                    return reconArray;
+                }
+            }).then(async (result) => {
+                if(result.isConfirmed) {
+                    Swal.fire({title: 'Sinisave...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
+                    try {
+                        let res = await apiCall('saveReconData', { projectId: proj.id, reconArray: result.value });
+                        if(res && res.status === 'success') {
+                            Swal.fire('Saved!', 'Na-save ang Recon Data. Nag-recalculate na ang Remaining Fund.', 'success');
+                            loadAuditDashboard(true);
+                        } else Swal.fire('Error', res.message, 'error');
+                    } catch(e) { Swal.fire('Error', e.message, 'error'); }
+                }
+            });
         }
 
         async function viewProjectDetailsModal(encodedProj) {
@@ -557,29 +674,46 @@
                 let res = await apiCall('getProjectDetails', { projectId: proj.id });
                 if (res && res.status === 'success') {
                     let logs = res.data;
-                    let isAudit = currentUser.role === 'Audit';
-                    let tableHeaders = isAudit 
+                    let isAuditView = (currentUser.role === 'Audit' || currentUser.role === 'Viewer');
+                    let canAudit = (currentUser.role === 'Audit');
+
+                    let tableHeaders = isAuditView 
                         ? `<tr><th class="p-3 whitespace-nowrap">Petsa</th><th class="p-3 w-1/3 min-w-[200px]">Breakdown ng Expenses</th><th class="p-3 text-right text-red-500 whitespace-nowrap">Total Exp.</th><th class="p-3 text-center whitespace-nowrap">Resibo</th><th class="p-3 text-center whitespace-nowrap">Action</th></tr>` 
                         : `<tr><th class="p-3 whitespace-nowrap">Petsa</th><th class="p-3 text-right whitespace-nowrap">Transpo</th><th class="p-3 text-right whitespace-nowrap">Meals</th><th class="p-3 text-right whitespace-nowrap">Materials</th><th class="p-3 text-right text-red-500 whitespace-nowrap">Total Exp.</th><th class="p-3 text-center whitespace-nowrap">Resibo</th><th class="p-3 text-center whitespace-nowrap">Action</th></tr>`;
                     
                     let initFundHtml = "";
-                    if(isAudit && proj.status === 'OPEN') {
+                    if(canAudit && proj.status === 'OPEN') {
                         initFundHtml = `
                         <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between mb-4 border border-blue-200 dark:border-blue-800">
                             <div class="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase mb-2 md:mb-0">Initial Fund Ref No:</div>
                             <div class="flex w-full md:w-auto space-x-2">
                                 <input type="text" id="initFundRefInput" value="${proj.initFundRef || ''}" class="px-3 py-1.5 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg text-xs w-full md:w-48 font-bold" placeholder="Ref No...">
-                                <button id="btnSaveInitRef" onclick="saveInitRef('${proj.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow transition">I-save</button>
+                                <button id="btnSaveInitRef" onclick="saveInitRef('${proj.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow transition whitespace-nowrap">I-save</button>
                             </div>
                         </div>`;
                     } else if (proj.initFundRef) {
                         initFundHtml = `<div class="text-xs font-bold text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded">Initial Fund Ref No: <span class="text-slate-800 dark:text-white">${proj.initFundRef}</span></div>`;
                     }
 
-                    // CSS FIX: Added w-full, overflow-x-auto wrapper, min-w-[700px] and whitespace-nowrap to stop column squishing on mobile
-                    let tableHtml = initFundHtml + `<div class="overflow-x-auto w-full max-h-[60vh] text-left custom-scrollbar"><table class="w-full text-xs border-collapse min-w-[700px]"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase tracking-wider text-[10px] text-slate-500 border-b dark:border-slate-700 whitespace-nowrap">${tableHeaders}</thead><tbody class="divide-y dark:divide-slate-700 whitespace-nowrap">`;
+                    // Display Recon Breakdown
+                    let reconHtml = '';
+                    let currentRecon = [];
+                    try { currentRecon = JSON.parse(proj.reconData || "[]"); } catch(e){}
+                    if(currentRecon.length > 0) {
+                        reconHtml = `<div class="bg-amber-50 dark:bg-amber-900/30 p-3 rounded-xl mb-4 border border-amber-200 dark:border-amber-800">
+                            <div class="text-[10px] font-black text-amber-800 dark:text-amber-400 uppercase mb-2"><i class="fa-solid fa-scale-balanced mr-1"></i>Audit Adjustments (Recon)</div>
+                            <ul class="text-[10px] space-y-1 text-slate-700 dark:text-slate-300">`;
+                        currentRecon.forEach(r => {
+                            let sign = r.type === 'add' ? '+' : '-';
+                            let color = r.type === 'add' ? 'text-emerald-600' : 'text-red-600';
+                            reconHtml += `<li><span class="font-bold uppercase">${r.remarks}</span>: <span class="${color} font-black">${sign}${formatCurrency(r.amount)}</span> adjusted to Rem. Fund</li>`;
+                        });
+                        reconHtml += `</ul></div>`;
+                    }
+
+                    let tableHtml = initFundHtml + reconHtml + `<div class="overflow-x-auto w-full max-h-[50vh] text-left custom-scrollbar"><table class="w-full text-xs border-collapse min-w-[700px]"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase tracking-wider text-[10px] text-slate-500 border-b dark:border-slate-700 whitespace-nowrap">${tableHeaders}</thead><tbody class="divide-y dark:divide-slate-700 whitespace-nowrap">`;
                     
-                    if(!logs || logs.length === 0) tableHtml += `<tr><td colspan="${isAudit ? '5' : '7'}" class="p-6 text-center font-bold text-slate-500 uppercase">Walang record ng liquidation.</td></tr>`;
+                    if(!logs || logs.length === 0) tableHtml += `<tr><td colspan="${isAuditView ? '5' : '7'}" class="p-6 text-center font-bold text-slate-500 uppercase">Walang record ng liquidation.</td></tr>`;
                     else {
                         logs.forEach(l => {
                             let rLinks = 'N/A';
@@ -587,38 +721,48 @@
                             
                             let actionBtn = "";
                             let safeLog = encodeURIComponent(JSON.stringify(l));
+                            
                             if (l.isAudited) {
                                 actionBtn = `<span class="text-emerald-500 font-bold tracking-wider text-[9px] block"><i class="fa-solid fa-lock mr-1"></i>AUDITED BY</span><span class="text-[10px] font-black text-slate-700 dark:text-slate-300 block">${l.auditedBy || 'Auditor'}</span>`;
                             } else {
-                                if (isAudit) actionBtn = `<button onclick="auditSingleDayAction('${l.logId}', '${encodedProj}')" class="bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow">FOR AUDIT</button>`;
-                                else actionBtn = `<button onclick="editLogMode('${safeLog}', '${encodedProj}')" class="bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow"><i class="fa-solid fa-pen mr-1"></i>Edit</button>`;
+                                if (canAudit) actionBtn = `<button onclick="auditSingleDayAction('${l.logId}', '${encodedProj}')" class="bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow whitespace-nowrap">FOR AUDIT</button>`;
+                                else if (currentUser.role === 'Viewer') actionBtn = `<span class="text-[9px] font-bold text-slate-400 whitespace-nowrap"><i class="fa-solid fa-eye"></i> VIEW</span>`;
+                                else actionBtn = `<button onclick="editLogMode('${safeLog}', '${encodedProj}')" class="bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow whitespace-nowrap"><i class="fa-solid fa-pen mr-1"></i>Edit</button>`;
                             }
 
-                            if (isAudit) {
-                                let breakdownHtml = `<div class="text-[10px] text-slate-600 dark:text-slate-400 space-y-1 whitespace-normal">`; // Allow text wrap inside breakdown
+                            if (isAuditView) {
+                                let breakdownHtml = `<div class="text-[10px] text-slate-600 dark:text-slate-400 space-y-1 whitespace-normal">`; 
+                                
+                                // Transpo Breakdown
                                 if(l.transpoArr && l.transpoArr.length > 0) {
                                     breakdownHtml += `<div><span class="font-bold text-blue-500 uppercase">Transpo:</span><ul class="list-disc pl-4 mb-1">`;
-                                    l.transpoArr.forEach(t => breakdownHtml += `<li>${t.from} to ${t.to} : ₱${t.amount}</li>`);
+                                    l.transpoArr.forEach(t => breakdownHtml += `<li>${t.from} to ${t.to} : ${formatCurrency(t.amount)}</li>`);
                                     breakdownHtml += `</ul></div>`;
                                 }
-                                if(l.mealsTotal > 0) breakdownHtml += `<div><span class="font-bold text-orange-500 uppercase">Meals:</span> ₱${l.mealsTotal}</div>`;
+                                // Meals Breakdown
+                                if(l.mealsArr && l.mealsArr.length > 0) {
+                                    breakdownHtml += `<div><span class="font-bold text-orange-500 uppercase">Meals:</span><ul class="list-disc pl-4 mb-1">`;
+                                    l.mealsArr.forEach(m => breakdownHtml += `<li>${m.name} : ${formatCurrency(m.amount)}</li>`);
+                                    breakdownHtml += `</ul></div>`;
+                                }
+                                // Materials Breakdown
                                 if(l.materialsArr && l.materialsArr.length > 0) {
                                     breakdownHtml += `<div><span class="font-bold text-emerald-500 uppercase">Materials:</span><ul class="list-disc pl-4 mt-1">`;
-                                    l.materialsArr.forEach(m => breakdownHtml += `<li>${m.item} : ₱${m.amount}</li>`);
+                                    l.materialsArr.forEach(m => breakdownHtml += `<li>${m.item} ${m.siNumber ? `<span class="text-[8px] uppercase tracking-wider text-slate-400">(Ref: ${m.siNumber})</span>` : ''} : ${formatCurrency(m.amount)}</li>`);
                                     breakdownHtml += `</ul></div>`;
                                 }
                                 
                                 if(l.replenishAmount > 0) {
-                                    if (proj.status === 'OPEN') {
+                                    if (canAudit && proj.status === 'OPEN') {
                                         breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50">
-                                            <span class="font-bold text-emerald-600 uppercase">Replenished:</span> ₱${formatCurrency(l.replenishAmount).replace('₱','')}<br>
+                                            <span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br>
                                             <div class="flex space-x-1 mt-1">
                                                 <input type="text" id="repRef_${l.logId}" value="${l.replenishRef || ''}" placeholder="Ref No..." class="px-2 py-1 text-[10px] w-full border rounded">
-                                                <button onclick="saveRepRef('${l.logId}')" class="bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold">Save</button>
+                                                <button onclick="saveRepRef('${l.logId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap transition">Save</button>
                                             </div>
                                         </div>`;
                                     } else {
-                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50"><span class="font-bold text-emerald-600 uppercase">Replenished:</span> ₱${formatCurrency(l.replenishAmount).replace('₱','')}<br><span class="text-[9px] font-bold text-slate-500 uppercase">Ref: ${l.replenishRef || 'Walang nai-input'}</span></div>`;
+                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50"><span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br><span class="text-[9px] font-bold text-slate-500 uppercase">Ref: ${l.replenishRef || 'Walang nai-input'}</span></div>`;
                                     }
                                 }
                                 breakdownHtml += `</div>`;
@@ -644,7 +788,6 @@
                         });
                     }
                     tableHtml += `</tbody></table></div>`;
-                    // Dito nilagay ang 'swal-wide' para mag-expand sa desktop nang hanggang 1000px
                     Swal.fire({ title: `<span class="text-xl font-black uppercase tracking-tight">${proj.name}</span>`, html: tableHtml, width: '95%', customClass: { popup: 'swal-wide' }, showCloseButton: true, confirmButtonText: 'ISARA', confirmButtonColor: '#334155' });
                 } else Swal.fire('Error', res ? res.message : 'Hindi makuha ang detalye.', 'error');
             } catch (err) { Swal.fire('Error', 'Network Error.', 'error'); }
@@ -656,10 +799,8 @@
                 Swal.fire({title: 'Sinisave...', allowOutsideClick: false, didOpen:()=>{Swal.showLoading()}});
                 try {
                     let out = await apiCall('auditSingleLog', { logId: logId, auditorName: currentUser.name });
-                    if(out.status === 'success') {
-                        await loadAuditDashboard(true);
-                        viewProjectDetailsModal(encodedProj);
-                    } else Swal.fire('Error', out.message, 'error');
+                    if(out.status === 'success') { await loadAuditDashboard(true); viewProjectDetailsModal(encodedProj); } 
+                    else Swal.fire('Error', out.message, 'error');
                 } catch(e) { Swal.fire('Error', e.message, 'error'); }
             }
         }
@@ -667,6 +808,7 @@
         function markProjectAuditedAction(id, remainingBal) {
             let formHtml = `
                 <div class="mt-4 text-left">
+                    <p class="text-[11px] text-slate-500 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 p-2 rounded mb-3">Tandaan: Ang halagang ito ay adjusted na kung ikaw ay naglagay ng RECON adjustments.</p>
                     <p class="text-sm font-bold text-slate-700 mb-3 uppercase text-center border-b pb-2">Final Balance: <span class="${remainingBal < 0 ? 'text-red-500' : 'text-blue-500'} font-black text-lg ml-2">${formatCurrency(remainingBal)}</span></p>
                     <label class="text-xs font-bold text-slate-500 uppercase">Amount (Reimburse/Sukli)</label>
                     <input type="text" id="closeAmount" inputmode="decimal" onfocus="cleanFormat(this)" onblur="applyFormat(this)" class="swal2-input !w-full !mx-0 !text-sm mb-3 currency-input" placeholder="Halaga (ex. 150.00)" value="${Number(Math.abs(remainingBal)).toLocaleString('en-US',{minimumFractionDigits:2})}">
@@ -675,9 +817,7 @@
                 </div>
             `;
             Swal.fire({
-                title: 'Isara at Mark Audited ang Project?', 
-                html: formHtml, 
-                icon: 'warning', showCancelButton: true, width: '90%', confirmButtonColor: '#dc2626', cancelButtonColor: '#64748b', confirmButtonText: 'Oo, Isara Project',
+                title: 'Isara at Mark Audited ang Project?', html: formHtml, icon: 'warning', showCancelButton: true, width: '90%', confirmButtonColor: '#dc2626', cancelButtonColor: '#64748b', confirmButtonText: 'Oo, Isara Project',
                 preConfirm: () => { 
                     let amt = getRawNumber(document.getElementById('closeAmount').value);
                     let ref = document.getElementById('closeTransNo').value;
@@ -695,16 +835,21 @@
         }
 
         function showCreateProject() {
-            document.getElementById('projName').value = ''; document.getElementById('projDesc').value = ''; document.getElementById('projStart').value = ''; document.getElementById('projEnd').value = ''; document.getElementById('initialFund').value = '0.00'; switchView('createProjectView');
+            document.getElementById('projName').value = ''; document.getElementById('projDesc').value = ''; document.getElementById('projStart').value = ''; document.getElementById('projEnd').value = ''; 
+            document.getElementById('initialMealFund').value = '0.00'; document.getElementById('initialMatFund').value = '0.00'; document.getElementById('initialFundTotal').value = '0.00'; 
+            switchView('createProjectView');
         }
 
         async function createProject() {
-            const name = document.getElementById('projName').value, desc = document.getElementById('projDesc').value, start = document.getElementById('projStart').value, end = document.getElementById('projEnd').value, fund = getRawNumber(document.getElementById('initialFund').value);
-            if(!name || !start || !end || fund <= 0) { Swal.fire('Kulang','Punan ang Name, Dates at Initial Fund.','warning'); return; }
+            const name = document.getElementById('projName').value, desc = document.getElementById('projDesc').value, start = document.getElementById('projStart').value, end = document.getElementById('projEnd').value;
+            let mealFund = getRawNumber(document.getElementById('initialMealFund').value);
+            let matFund = getRawNumber(document.getElementById('initialMatFund').value);
+            if(!name || !start || !end || (mealFund + matFund) <= 0) { Swal.fire('Kulang','Punan ang Name, Dates at Initial Funds.','warning'); return; }
             if(new Date(start) > new Date(end)) { Swal.fire('Error','Ang Start Date ay dapat mauna kaysa End Date.','error'); return; }
+            
             showBtnLoader('btnCreateProj', 'createSpinner', true, 'I-save Payout');
             try {
-                let result = await apiCall('createProject', { empNo: currentUser.empNo, name: name, desc: desc, initialFund: fund, startDate: start, endDate: end });
+                let result = await apiCall('createProject', { empNo: currentUser.empNo, name: name, desc: desc, initialMealFund: mealFund, initialMaterialFund: matFund, startDate: start, endDate: end });
                 showBtnLoader('btnCreateProj', 'createSpinner', false, 'I-save Payout');
                 if(result && result.status === 'success') { Swal.fire('Success!', 'Nagawa na ang Payout Record.', 'success'); loadNormalDashboard(true); } else Swal.fire('Error', result ? result.message : 'Unknown error', 'error');
             } catch(e) { showBtnLoader('btnCreateProj', 'createSpinner', false, 'I-save Payout'); Swal.fire('Error', 'May aberya sa network.', 'error'); }
@@ -714,31 +859,38 @@
             let log = JSON.parse(decodeURIComponent(encodedLog));
             let proj = JSON.parse(decodeURIComponent(encodedProj));
             Swal.close(); 
-            openDailyLiquidation(proj.id, proj.name, proj.initialFund, proj.expenses, proj.replenished, proj.remaining, log);
+            openDailyLiquidation(encodeURIComponent(JSON.stringify(proj)), log);
         }
 
-        function openDailyLiquidation(id, name, init, exp, rep, rem, logToEdit = null) {
-            activeProjectInfo = { id, init, exp, rep, rem };
+        function openDailyLiquidation(encodedProj, logToEdit = null) {
+            let proj = JSON.parse(decodeURIComponent(encodedProj));
+            activeProjectInfo = { id: proj.id, init: proj.initialFund, exp: proj.expenses, rep: proj.replenished, rem: proj.remaining, remMeal: proj.remMeal, remMat: proj.remMat };
             
             if (logToEdit) {
                 activeLogId = logToEdit.logId;
-                activeProjectInfo.rem = (activeProjectInfo.rem + logToEdit.dailyTotal) - (logToEdit.replenishAmount || 0);
+                let rAmt = logToEdit.replenishAmount || 0;
+                activeProjectInfo.rem = (activeProjectInfo.rem + logToEdit.dailyTotal) - rAmt;
+                activeProjectInfo.remMeal = activeProjectInfo.remMeal + logToEdit.mealsTotal;
+                activeProjectInfo.remMat = (activeProjectInfo.remMat + logToEdit.transpoTotal + logToEdit.materialsTotal) - rAmt;
             } else { activeLogId = null; }
             
-            document.getElementById('activeProjName').innerText = name;
-            document.getElementById('summaryInitial').innerText = formatCurrency(init);
-            document.getElementById('summaryExpense').innerText = formatCurrency(exp);
-            document.getElementById('summaryReplenish').innerText = formatCurrency(rep);
+            document.getElementById('activeProjName').innerText = proj.name;
+            document.getElementById('summaryInitial').innerText = formatCurrency(proj.initialFund);
+            document.getElementById('summaryExpense').innerText = formatCurrency(proj.expenses);
+            document.getElementById('summaryReplenish').innerText = formatCurrency(proj.replenished);
             
             document.getElementById('formTitle').innerHTML = logToEdit ? '<i class="fa-solid fa-pen-to-square text-amber-500 mr-2"></i>I-edit ang Liquidation' : 'Daily Liquidation Entry';
             document.getElementById('btnSubmitLog').querySelector('span').innerText = logToEdit ? "I-update ang Data" : "I-submit ang Liquidation";
             
             let remEl = document.getElementById('summaryRemaining');
-            remEl.innerText = formatCurrency(rem);
-            if(rem < 0) { remEl.classList.add('text-red-600'); remEl.classList.remove('text-amber-600'); }
+            remEl.innerText = formatCurrency(activeProjectInfo.rem);
+            if(activeProjectInfo.rem < 0) { remEl.classList.add('text-red-600'); remEl.classList.remove('text-amber-600'); }
             else { remEl.classList.remove('text-red-600'); remEl.classList.add('text-amber-600'); }
             
+            document.getElementById('summaryRemBreakdown').innerText = `(Meal: ${formatCurrency(activeProjectInfo.remMeal)} | Mat: ${formatCurrency(activeProjectInfo.remMat)})`;
+
             document.getElementById('transpoContainer').innerHTML = '';
+            document.getElementById('mealsContainer').innerHTML = '';
             document.getElementById('materialsContainer').innerHTML = '';
             document.getElementById('entryReceipts').value = '';
 
@@ -747,29 +899,35 @@
                 let yyyy = d.getFullYear(); let mm = String(d.getMonth() + 1).padStart(2, '0'); let dd = String(d.getDate()).padStart(2, '0');
                 document.getElementById('entryDate').value = `${yyyy}-${mm}-${dd}`;
                 
-                document.getElementById('entryMeals').value = logToEdit.mealsTotal; applyFormat(document.getElementById('entryMeals'));
                 document.getElementById('entryReplenish').value = logToEdit.replenishAmount || 0; applyFormat(document.getElementById('entryReplenish'));
-                
                 document.getElementById('editReceiptHint').classList.remove('hidden');
 
-                if (logToEdit.transpoArr && logToEdit.transpoArr.length > 0) logToEdit.transpoArr.forEach(t => addTranspoRow(t.from, t.to, t.amount));
-                else addTranspoRow();
-                if (logToEdit.materialsArr && logToEdit.materialsArr.length > 0) logToEdit.materialsArr.forEach(m => addMaterialRow(m.item, m.amount));
-                else addMaterialRow();
-
+                if (logToEdit.transpoArr && logToEdit.transpoArr.length > 0) logToEdit.transpoArr.forEach(t => addTranspoRow(t.from, t.to, t.amount)); else addTranspoRow();
+                if (logToEdit.mealsArr && logToEdit.mealsArr.length > 0) logToEdit.mealsArr.forEach(m => addMealRow(m.name, m.amount)); else addMealRow();
+                if (logToEdit.materialsArr && logToEdit.materialsArr.length > 0) logToEdit.materialsArr.forEach(m => addMaterialRow(m.item, m.siNumber, m.amount)); else addMaterialRow();
             } else {
                 let today = new Date();
                 let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
                 document.getElementById('entryDate').value = `${yyyy}-${mm}-${dd}`;
                 
-                document.getElementById('entryMeals').value = '0.00';
                 document.getElementById('entryReplenish').value = '0.00';
                 document.getElementById('editReceiptHint').classList.add('hidden');
-                addTranspoRow(); addMaterialRow();
+                addTranspoRow(); addMealRow(); addMaterialRow();
             }
             
             computeDailyTotal();
             switchView('dailyEntryView');
+        }
+
+        function addMealRow(nameVal = "", amtVal = "0.00") {
+            if(document.querySelectorAll('.meal-row').length >= 10) { Swal.fire('Limit Reached', 'Hanggang 10 tao lamang ang maaari i-record per log.', 'warning'); return; }
+            const div = document.createElement('div');
+            div.className = "flex space-x-2 meal-row animate-[fadeIn_0.3s_ease-out]";
+            div.innerHTML = `
+                <input type="text" placeholder="Pangalan" value="${nameVal}" class="w-2/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold l-name dark:text-white uppercase">
+                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 l-amt dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
+                <button onclick="this.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>`;
+            document.getElementById('mealsContainer').appendChild(div);
         }
 
         function addTranspoRow(fromVal = "", toVal = "", amtVal = "0.00") {
@@ -778,29 +936,36 @@
             div.innerHTML = `
                 <input type="text" placeholder="From" value="${fromVal}" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold t-from dark:text-white uppercase">
                 <input type="text" placeholder="To" value="${toVal}" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold t-to dark:text-white uppercase">
-                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 t-amt comp-trigger dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
+                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 t-amt dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
                 <button onclick="this.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>`;
             document.getElementById('transpoContainer').appendChild(div);
         }
 
-        function addMaterialRow(itemVal = "", amtVal = "0.00") {
+        function addMaterialRow(itemVal = "", siVal = "", amtVal = "0.00") {
             const div = document.createElement('div');
-            div.className = "flex space-x-2 mat-row animate-[fadeIn_0.3s_ease-out]";
+            div.className = "flex flex-col md:flex-row space-y-2 md:space-y-0 space-x-0 md:space-x-2 mat-row animate-[fadeIn_0.3s_ease-out] border-b border-slate-200 dark:border-slate-700 pb-2 md:border-0 md:pb-0";
+            
+            // NUMERIC ONLY VALIDATION FOR SI NUMBER
             div.innerHTML = `
-                <input type="text" placeholder="Item Name" value="${itemVal}" class="w-2/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold m-item dark:text-white uppercase">
-                <input type="text" inputmode="decimal" placeholder="Amt" class="w-1/3 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 m-amt comp-trigger dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
-                <button onclick="this.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>`;
+                <input type="text" placeholder="Item Name" value="${itemVal}" class="w-full md:w-1/2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold m-item dark:text-white uppercase">
+                <input type="text" placeholder="SI/Receipt #" value="${siVal}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full md:w-1/4 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-blue-500 m-si dark:text-blue-300 uppercase">
+                <div class="w-full md:w-1/4 flex space-x-2">
+                    <input type="text" inputmode="decimal" placeholder="Amt" class="w-full px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-red-500 m-amt dark:text-white currency-input" value="${Number(amtVal).toLocaleString('en-US',{minimumFractionDigits:2})}" onfocus="cleanFormat(this)" onblur="applyFormat(this)" onkeyup="computeDailyTotal()">
+                    <button onclick="this.parentElement.parentElement.remove(); computeDailyTotal()" class="text-slate-400 hover:text-red-600 px-2 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            `;
             document.getElementById('materialsContainer').appendChild(div);
         }
 
         function computeDailyTotal() {
-            let meals = getRawNumber(document.getElementById('entryMeals').value);
             let replenish = getRawNumber(document.getElementById('entryReplenish').value);
+            let mealsTotal = 0; document.querySelectorAll('.l-amt').forEach(el => mealsTotal += getRawNumber(el.value));
             let transpoTotal = 0; document.querySelectorAll('.t-amt').forEach(el => transpoTotal += getRawNumber(el.value));
             let matTotal = 0; document.querySelectorAll('.m-amt').forEach(el => matTotal += getRawNumber(el.value));
             
-            let dailyExpense = meals + transpoTotal + matTotal;
+            let dailyExpense = mealsTotal + transpoTotal + matTotal;
             document.getElementById('todayTotalExp').innerText = formatCurrency(dailyExpense);
+            
             let newOutstanding = (activeProjectInfo.rem - dailyExpense) + replenish;
             let outEl = document.getElementById('todayOutstanding');
             outEl.innerText = formatCurrency(newOutstanding);
@@ -811,15 +976,23 @@
         async function submitDailyLog() {
             const fileInput = document.getElementById('entryReceipts');
             if (fileInput.files.length > 5) { Swal.fire('Limit Reached', 'Hanggang 5 resibo lamang ang maaari i-attach.', 'warning'); return; }
+            
+            let mealsArray = [];
+            document.querySelectorAll('.meal-row').forEach(row => {
+                let name = row.querySelector('.l-name').value, amt = getRawNumber(row.querySelector('.l-amt').value);
+                if(amt > 0 || name.trim() !== "") mealsArray.push({name, amount: amt});
+            });
+
             let transpoArray = [];
             document.querySelectorAll('.transpo-row').forEach(row => {
                 let from = row.querySelector('.t-from').value, to = row.querySelector('.t-to').value, amt = getRawNumber(row.querySelector('.t-amt').value);
                 if(amt > 0) transpoArray.push({from, to, amount: amt});
             });
+
             let materialsArray = [];
             document.querySelectorAll('.mat-row').forEach(row => {
-                let item = row.querySelector('.m-item').value, amt = getRawNumber(row.querySelector('.m-amt').value);
-                if(amt > 0) materialsArray.push({item, amount: amt});
+                let item = row.querySelector('.m-item').value, siNumber = row.querySelector('.m-si').value, amt = getRawNumber(row.querySelector('.m-amt').value);
+                if(amt > 0 || item.trim() !== "") materialsArray.push({item, siNumber, amount: amt});
             });
 
             let replenishAmount = getRawNumber(document.getElementById('entryReplenish').value);
@@ -828,24 +1001,24 @@
                 projectId: activeProjectInfo.id,
                 logId: activeLogId,
                 date: document.getElementById('entryDate').value,
-                mealsAmount: getRawNumber(document.getElementById('entryMeals').value),
+                mealsAmount: 0, 
+                mealsArray: mealsArray, 
+                transpoArray: transpoArray, 
+                materialsArray: materialsArray, 
                 replenishmentAmount: replenishAmount,
                 replenishRef: "",
-                transpoArray: transpoArray, materialsArray: materialsArray, receipts: [],
+                receipts: [],
                 role: currentUser.role 
             };
 
             showBtnLoader('btnSubmitLog', 'submitSpinner', true, activeLogId ? 'Nag-uupdate...' : 'Pino-proseso ang Images...');
             
-            // Client-side compression bago pa man mag-send sa network
             if (fileInput.files.length > 0) {
                 payload.receipts = await Promise.all(Array.from(fileInput.files).map(file => compressImage(file)));
             }
 
             try {
-                // Optimistic UI update on the button
                 document.getElementById('btnSubmitLog').querySelector('span').innerText = 'Ipinapadala sa Server...';
-                
                 let result = await apiCall('saveDailyLog', payload);
                 showBtnLoader('btnSubmitLog', 'submitSpinner', false, activeLogId ? "I-update ang Data" : "I-submit ang Liquidation");
                 if (result && result.status === 'success') { Swal.fire('Nai-save!', 'Matagumpay na naitala ang liquidation.', 'success'); loadNormalDashboard(true); } 
