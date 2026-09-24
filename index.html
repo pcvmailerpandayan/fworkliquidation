@@ -230,7 +230,7 @@
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwJDa5CGBSeDh06X0J1dbhGadCq0Ag0I8b5TQbe8-HcMNPnBJy2dgZsmC7pQVgbZd6J/exec';
         
         // 2. Kapag naka-setup na ang Cloudflare Worker mo, ilagay ang endpoint URL rito:
-        const CLOUDFLARE_WORKER_URL = ''; // Hal: 'https://liquidation.iyong-domain.workers.dev'
+        const CLOUDFLARE_WORKER_URL = 'https://ttp-liquidation-api.pcvmailer-pandayan.workers.dev/'
         
         // Gamitin ang Cloudflare kung meron, kung wala ay direktang pupunta sa GAS.
         const ACTIVE_ENDPOINT_URL = CLOUDFLARE_WORKER_URL !== '' ? CLOUDFLARE_WORKER_URL : GAS_WEB_APP_URL;
