@@ -355,21 +355,37 @@
             switchView('loginView');
         }
 
+        // BAGO: In-update ang login function para kunin pareho ang User Data at Project Data nang minsanan! (Walang double loading)
         async function login() {
             const empNo = document.getElementById('empNo').value.trim();
             if (!empNo) { Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Ilagay ang Employee Number.' }); return; }
             showBtnLoader('btnLogin', 'loginSpinner', true, 'Mag-Patuloy');
             try {
-                let result = await apiCall('verifyUser', { empNo: empNo });
+                let result = await apiCall('loginInit', { empNo: empNo });
                 showBtnLoader('btnLogin', 'loginSpinner', false, 'Mag-Patuloy');
                 if (result && result.status === 'success') {
                     localStorage.setItem('ttp_empNo', empNo); 
-                    currentUser = result.data;
+                    currentUser = result.data.user;
                     document.getElementById('displayUserName').innerText = `${currentUser.name} (${currentUser.role})`;
                     document.getElementById('userInfo').classList.remove('hidden');
                     
-                    if (currentUser.role === 'Audit' || currentUser.role === 'Viewer') loadAuditDashboard();
-                    else loadNormalDashboard();
+                    // I-load agad ang Dashboard dahil nakuha na ang projects sa unang call
+                    if (currentUser.role === 'Audit' || currentUser.role === 'Viewer') {
+                        let cacheKey = 'ttp_audit_projects';
+                        sessionStorage.setItem(cacheKey, JSON.stringify(result.data.projects));
+                        allAuditProjects = result.data.projects;
+                        document.getElementById('auditDashTitle').innerHTML = currentUser.role === 'Viewer' 
+                            ? '<i class="fa-solid fa-eye text-blue-600 mr-3"></i>View-Only Tracker' 
+                            : '<i class="fa-solid fa-shield-halved text-blue-600 mr-3"></i>Audit Center Tracker';
+                        renderAuditTable(allAuditProjects);
+                        switchView('auditDashboardView');
+                    } else {
+                        let cacheKey = 'ttp_projects_' + currentUser.empNo;
+                        sessionStorage.setItem(cacheKey, JSON.stringify(result.data.projects));
+                        const container = document.getElementById('projectListContainer');
+                        renderProjects(result.data.projects, container);
+                        switchView('normalDashboardView');
+                    }
                 } else {
                     localStorage.removeItem('ttp_empNo');
                     Swal.fire({ icon: 'error', title: 'Error', text: (result && result.message) ? result.message : "Hindi natagpuan." });
