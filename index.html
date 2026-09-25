@@ -27,12 +27,6 @@
             .custom-scrollbar::-webkit-scrollbar-track { background: #334155; }
             .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
         }
-        .fuse-container { position: relative; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; margin-top: 5px; }
-        .fuse-burn { position: absolute; top: 0; right: 0; height: 100%; background: #ef4444; width: 100%; transform-origin: right; animation: burnDown 60s linear infinite; }
-        .fuse-spark { position: absolute; top: -6px; right: 0; color: #f59e0b; font-size: 14px; animation: sparkMove 60s linear infinite, sparkFlicker 0.2s infinite; }
-        @keyframes burnDown { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
-        @keyframes sparkMove { 0% { right: 0%; } 100% { right: 100%; } }
-        @keyframes sparkFlicker { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
         .currency-input { text-align: right; font-variant-numeric: tabular-nums; }
     </style>
 </head>
@@ -268,7 +262,16 @@
 
         function getRawNumber(val) { return parseFloat(val.toString().replace(/,/g, '')) || 0; }
         function formatCurrency(num) { return '₱' + parseFloat(num || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
-        function applyFormat(el) { el.value = getRawNumber(el.value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); computeDailyTotal(); }
+        
+        // UPDATE: applyFormat para hindi i-trigger ang computeDailyTotal kapag binubuksan sa Recon Modal.
+        function applyFormat(el) { 
+            el.value = getRawNumber(el.value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
+            // Sisiguraduhin na i-coc-compute lamang ang daily total kung aktibo ang dailyEntry form (iiwasan nito ang null error)
+            let viewEl = document.getElementById('dailyEntryView');
+            if(viewEl && viewEl.classList.contains('active-view')) {
+                computeDailyTotal();
+            }
+        }
         function cleanFormat(el) { let val = getRawNumber(el.value); el.value = val === 0 ? '' : val; }
         
         function formatFormalDate(dateStr) {
@@ -377,25 +380,50 @@
             }
         }
 
-        function calculateDueTimer(endDateStr, timerElementId) {
+        // UPDATE: Modern Progress Bar Animation sa halip na 'fuse'
+        function calculateDueTimer(startDateStr, endDateStr, timerElementId) {
             let el = document.getElementById(timerElementId);
             if (!el) return null;
-            if (!endDateStr) { el.innerHTML = "<span class='text-slate-400'>No End Date</span>"; return null; }
+            if (!endDateStr || !startDateStr) { el.innerHTML = "<span class='text-slate-400'>No Dates Provided</span>"; return null; }
+            
+            let start = new Date(startDateStr).getTime();
             let end = new Date(endDateStr);
             let due = new Date(end.getTime() + (24 * 60 * 60 * 1000));
             if (due.getDay() === 0) due.setDate(due.getDate() + 1); 
+            let dueTime = due.getTime();
+            let totalDuration = dueTime - start;
+
             let exactDateFormatted = due.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+            
             let interval = setInterval(() => {
                 let now = new Date().getTime();
-                let dist = due.getTime() - now;
+                let dist = dueTime - now;
                 let elem = document.getElementById(timerElementId);
                 if (!elem) { clearInterval(interval); return; }
+                
                 if (dist < 0) {
-                    elem.innerHTML = `<div class="flex items-center text-red-600 font-black tracking-widest text-lg"><i class="fa-solid fa-bomb animate-pulse mr-2 text-2xl"></i> OVERDUE</div><div class="text-[9px] text-red-400 mt-1">Due was: ${exactDateFormatted}</div>`;
+                    elem.innerHTML = `
+                        <div class="flex items-center text-red-600 font-black tracking-widest text-sm mb-1"><i class="fa-solid fa-bomb animate-pulse mr-2"></i> OVERDUE</div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5 dark:bg-slate-700 overflow-hidden"><div class="bg-red-600 h-1.5 rounded-full" style="width: 0%"></div></div>
+                        <div class="text-[9px] text-red-400 mt-1 text-right">Due was: ${exactDateFormatted}</div>`;
                     clearInterval(interval);
                 } else {
                     let d = Math.floor(dist / (1000 * 60 * 60 * 24)), h = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)), m = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
-                    elem.innerHTML = `<div class="flex flex-col w-full"><div class="flex items-center justify-between text-red-500 font-bold tracking-wide text-sm mb-1"><span>${d}d ${h}h ${m}m</span><i class="fa-solid fa-bomb ml-2 text-lg"></i></div><div class="fuse-container"><div class="fuse-burn"></div><i class="fa-solid fa-fire fuse-spark"></i></div><div class="text-[9px] text-slate-500 mt-1 text-right">Due on: ${exactDateFormatted}</div></div>`;
+                    
+                    let percent = Math.max(0, Math.min(100, (dist / totalDuration) * 100));
+                    let colorClass = percent > 50 ? 'bg-emerald-500' : (percent > 20 ? 'bg-amber-500' : 'bg-red-500');
+                    let textClass = percent > 50 ? 'text-emerald-600 dark:text-emerald-400' : (percent > 20 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400');
+                    
+                    elem.innerHTML = `
+                        <div class="flex flex-col w-full">
+                            <div class="flex items-center justify-between ${textClass} font-bold tracking-wide text-xs mb-1.5">
+                                <span><i class="fa-regular fa-clock mr-1"></i> ${d}d ${h}h ${m}m</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-1.5 dark:bg-slate-700 overflow-hidden relative">
+                                <div class="${colorClass} h-1.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)] transition-all duration-1000" style="width: ${percent}%"></div>
+                            </div>
+                            <div class="text-[9px] text-slate-500 mt-1 text-right">Due on: ${exactDateFormatted}</div>
+                        </div>`;
                 }
             }, 1000);
             timersArray.push(interval);
@@ -444,28 +472,29 @@
                     let projStr = encodeURIComponent(JSON.stringify(proj));
                     card.onclick = () => viewProjectDetailsModal(projStr);
                     
+                    // UPDATE: Ginawang makabago at mas malinaw ang pwesto ng Meal at Mat Fund breakdown.
                     card.innerHTML = `
                         <div class="flex justify-between items-start mb-2"><h3 class="font-black text-xl truncate pr-4 text-slate-800 dark:text-white uppercase">${proj.name}</h3><span class="text-[10px] px-2.5 py-1 rounded-md font-black uppercase tracking-wider ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></div>
                         <p class="text-xs font-bold text-slate-500 mb-5"><i class="fa-regular fa-calendar mr-1"></i> ${formatFormalDate(proj.startDate)} — ${formatFormalDate(proj.endDate)}</p>
                         
                         <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border dark:border-slate-700 flex flex-col mb-5">
-                            <div class="flex justify-between items-center w-full">
+                            <div class="flex justify-between items-center w-full mb-2">
                                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rem. Fund</span>
                                 <span class="font-black text-2xl text-slate-800 dark:text-white">${formatCurrency(proj.remaining)}</span>
                             </div>
-                            <div class="flex justify-between text-[10px] mt-2 text-slate-500 font-bold uppercase tracking-wider border-t border-slate-200 dark:border-slate-700 pt-2">
-                                <span>Meal: <span class="text-slate-700 dark:text-slate-300">${formatCurrency(proj.remMeal)}</span></span>
-                                <span>Mat: <span class="text-slate-700 dark:text-slate-300">${formatCurrency(proj.remMat)}</span></span>
+                            <div class="flex gap-2">
+                                <span class="bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider border border-orange-200 dark:border-orange-800 w-full text-center"><i class="fa-solid fa-utensils mr-1"></i> ${formatCurrency(proj.remMeal)}</span>
+                                <span class="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800 w-full text-center"><i class="fa-solid fa-box mr-1"></i> ${formatCurrency(proj.remMat)}</span>
                             </div>
                         </div>
 
-                        ${!isClosed ? `<div class="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800/50 mb-5 w-full"><div id="${timerId}" class="w-full">--:--</div></div>` : `<p class="text-[10px] text-slate-500 font-bold mb-5 uppercase tracking-wide"><i class="fa-solid fa-lock mr-1"></i>Audited by: ${proj.closedBy}</p>`}
+                        ${!isClosed ? `<div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 mb-5 w-full"><div id="${timerId}" class="w-full">--:--</div></div>` : `<p class="text-[10px] text-slate-500 font-bold mb-5 uppercase tracking-wide"><i class="fa-solid fa-lock mr-1"></i>Audited by: ${proj.closedBy}</p>`}
                         <button onclick="event.stopPropagation(); ${!isClosed ? `openDailyLiquidation('${projStr}')` : `Swal.fire('Audited','Hindi na maaaring dagdagan ang audited record.','info')`}" class="w-full ${!isClosed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 dark:bg-slate-700'} text-white py-3 rounded-xl font-black uppercase tracking-wide transition whitespace-nowrap">${!isClosed ? '<i class="fa-solid fa-pen-to-square mr-2"></i>Buksan ang Payout' : '<i class="fa-solid fa-check-double mr-2"></i>Audited Na'}</button>
                     `;
                     fragment.appendChild(card);
                 });
                 container.appendChild(fragment);
-                projects.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.endDate, `n-timer-${i}`); });
+                projects.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.startDate, proj.endDate, `n-timer-${i}`); });
             }
         }
 
@@ -541,11 +570,15 @@
                     } else actionCell = `<span class="text-[10px] font-bold text-slate-400 whitespace-nowrap"><i class="fa-solid fa-eye text-lg"></i></span>`;
                 } else { actionCell = `<span class="text-[10px] font-bold text-slate-400 whitespace-nowrap"><i class="fa-solid fa-lock text-xl"></i></span>`; }
 
+                // UPDATE: Sa tracker, inayos at ginawang mas madaling maunawaan ang meal/mat rem fund badges.
                 tr.innerHTML = `
                     <td class="p-4">
                         <p class="font-black text-blue-600 dark:text-blue-400 uppercase text-sm">${proj.name}</p>
                         <p class="text-[10px] font-bold text-slate-500 uppercase mt-1">Rem: <span class="${isReimbursed ? 'text-red-500' : 'text-slate-800 dark:text-white'}">${formatCurrency(proj.remaining)}</span></p>
-                        <p class="text-[9px] font-bold text-slate-400 mt-0.5">(Meal: ${formatCurrency(proj.remMeal)} | Mat: ${formatCurrency(proj.remMat)})</p>
+                        <div class="flex gap-2 mt-1.5">
+                            <span class="bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-orange-200 dark:border-orange-800"><i class="fa-solid fa-utensils mr-1"></i> ${formatCurrency(proj.remMeal)}</span>
+                            <span class="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800"><i class="fa-solid fa-box mr-1"></i> ${formatCurrency(proj.remMat)}</span>
+                        </div>
                     </td>
                     <td class="p-4"><p class="font-bold text-slate-700 dark:text-slate-300 text-xs"><i class="fa-solid fa-user-tag text-slate-400 mr-1"></i>${proj.empNo}</p></td>
                     <td class="p-4"><p class="text-[10px] font-bold text-slate-500 mb-1">${formatFormalDate(proj.startDate)} - ${formatFormalDate(proj.endDate)}</p><span class="text-[10px] px-2 py-1 rounded font-black uppercase tracking-widest ${isClosed ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-emerald-100 text-emerald-800'}">${proj.status}</span></td>
@@ -555,7 +588,7 @@
                 fragment.appendChild(tr);
             });
             tbody.appendChild(fragment);
-            projectsData.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.endDate, `a-timer-${i}`); });
+            projectsData.forEach((proj, i) => { if (proj.status === 'OPEN') calculateDueTimer(proj.startDate, proj.endDate, `a-timer-${i}`); });
         }
 
         async function saveInitRef(projectId) {
@@ -677,9 +710,8 @@
                     let isAuditView = (currentUser.role === 'Audit' || currentUser.role === 'Viewer');
                     let canAudit = (currentUser.role === 'Audit');
 
-                    let tableHeaders = isAuditView 
-                        ? `<tr><th class="p-3 whitespace-nowrap">Petsa</th><th class="p-3 w-1/3 min-w-[200px]">Breakdown ng Expenses</th><th class="p-3 text-right text-red-500 whitespace-nowrap">Total Exp.</th><th class="p-3 text-center whitespace-nowrap">Resibo</th><th class="p-3 text-center whitespace-nowrap">Action</th></tr>` 
-                        : `<tr><th class="p-3 whitespace-nowrap">Petsa</th><th class="p-3 text-right whitespace-nowrap">Transpo</th><th class="p-3 text-right whitespace-nowrap">Meals</th><th class="p-3 text-right whitespace-nowrap">Materials</th><th class="p-3 text-right text-red-500 whitespace-nowrap">Total Exp.</th><th class="p-3 text-center whitespace-nowrap">Resibo</th><th class="p-3 text-center whitespace-nowrap">Action</th></tr>`;
+                    // UPDATE: Pareho na ang format at nilagyan na ng 'Daily Ledger / Running Bal.' na column para sa User at Viewer.
+                    let tableHeaders = `<tr><th class="p-3 whitespace-nowrap">Petsa</th><th class="p-3 w-1/3 min-w-[200px]">Breakdown ng Expenses</th><th class="p-3 bg-slate-50 dark:bg-slate-800/50 text-center whitespace-nowrap">Daily Ledger (Per Day)</th><th class="p-3 text-center whitespace-nowrap">Resibo</th><th class="p-3 text-center whitespace-nowrap">Action</th></tr>`;
                     
                     let initFundHtml = "";
                     if(canAudit && proj.status === 'OPEN') {
@@ -695,7 +727,6 @@
                         initFundHtml = `<div class="text-xs font-bold text-slate-500 mb-4 bg-slate-100 dark:bg-slate-800 p-2 rounded">Initial Fund Ref No: <span class="text-slate-800 dark:text-white">${proj.initFundRef}</span></div>`;
                     }
 
-                    // Display Recon Breakdown
                     let reconHtml = '';
                     let currentRecon = [];
                     try { currentRecon = JSON.parse(proj.reconData || "[]"); } catch(e){}
@@ -711,11 +742,24 @@
                         reconHtml += `</ul></div>`;
                     }
 
-                    let tableHtml = initFundHtml + reconHtml + `<div class="overflow-x-auto w-full max-h-[50vh] text-left custom-scrollbar"><table class="w-full text-xs border-collapse min-w-[700px]"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase tracking-wider text-[10px] text-slate-500 border-b dark:border-slate-700 whitespace-nowrap">${tableHeaders}</thead><tbody class="divide-y dark:divide-slate-700 whitespace-nowrap">`;
+                    let tableHtml = initFundHtml + reconHtml + `<div class="overflow-x-auto w-full max-h-[50vh] text-left custom-scrollbar"><table class="w-full text-xs border-collapse min-w-[750px]"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 uppercase tracking-wider text-[10px] text-slate-500 border-b dark:border-slate-700 whitespace-nowrap">${tableHeaders}</thead><tbody class="divide-y dark:divide-slate-700 whitespace-nowrap">`;
                     
-                    if(!logs || logs.length === 0) tableHtml += `<tr><td colspan="${isAuditView ? '5' : '7'}" class="p-6 text-center font-bold text-slate-500 uppercase">Walang record ng liquidation.</td></tr>`;
+                    if(!logs || logs.length === 0) tableHtml += `<tr><td colspan="5" class="p-6 text-center font-bold text-slate-500 uppercase">Walang record ng liquidation.</td></tr>`;
                     else {
+                        // UPDATE: Pagtutuos (Running Balance Ledger calculation)
+                        let runTotal = proj.initialFund;
+                        let runMeal = proj.initMeal;
+                        let runMat = proj.initMat;
+
                         logs.forEach(l => {
+                            // Keep starting values to render properly
+                            let startTotal = runTotal;
+                            
+                            // Re-calculate the daily running balances moving forward chronologically
+                            runMeal -= l.mealsTotal;
+                            runMat = (runMat + l.replenishAmount) - (l.transpoTotal + l.materialsTotal);
+                            runTotal = (runTotal + l.replenishAmount) - l.dailyTotal;
+
                             let rLinks = 'N/A';
                             if(l.receiptUrls && l.receiptUrls.length > 0) { rLinks = l.receiptUrls.map((url, idx) => `<a href="${url}" target="_blank" class="text-blue-500 font-bold hover:underline mx-1">[${idx+1}]</a>`).join(''); }
                             
@@ -730,61 +774,69 @@
                                 else actionBtn = `<button onclick="editLogMode('${safeLog}', '${encodedProj}')" class="bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-bold tracking-widest px-3 py-1.5 rounded uppercase shadow whitespace-nowrap"><i class="fa-solid fa-pen mr-1"></i>Edit</button>`;
                             }
 
-                            if (isAuditView) {
-                                let breakdownHtml = `<div class="text-[10px] text-slate-600 dark:text-slate-400 space-y-1 whitespace-normal">`; 
-                                
-                                // Transpo Breakdown
-                                if(l.transpoArr && l.transpoArr.length > 0) {
-                                    breakdownHtml += `<div><span class="font-bold text-blue-500 uppercase">Transpo:</span><ul class="list-disc pl-4 mb-1">`;
-                                    l.transpoArr.forEach(t => breakdownHtml += `<li>${t.from} to ${t.to} : ${formatCurrency(t.amount)}</li>`);
-                                    breakdownHtml += `</ul></div>`;
-                                }
-                                // Meals Breakdown
-                                if(l.mealsArr && l.mealsArr.length > 0) {
-                                    breakdownHtml += `<div><span class="font-bold text-orange-500 uppercase">Meals:</span><ul class="list-disc pl-4 mb-1">`;
-                                    l.mealsArr.forEach(m => breakdownHtml += `<li>${m.name} : ${formatCurrency(m.amount)}</li>`);
-                                    breakdownHtml += `</ul></div>`;
-                                }
-                                // Materials Breakdown
-                                if(l.materialsArr && l.materialsArr.length > 0) {
-                                    breakdownHtml += `<div><span class="font-bold text-emerald-500 uppercase">Materials:</span><ul class="list-disc pl-4 mt-1">`;
-                                    l.materialsArr.forEach(m => breakdownHtml += `<li>${m.item} ${m.siNumber ? `<span class="text-[8px] uppercase tracking-wider text-slate-400">(Ref: ${m.siNumber})</span>` : ''} : ${formatCurrency(m.amount)}</li>`);
-                                    breakdownHtml += `</ul></div>`;
-                                }
-                                
-                                if(l.replenishAmount > 0) {
-                                    if (canAudit && proj.status === 'OPEN') {
-                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50">
-                                            <span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br>
-                                            <div class="flex space-x-1 mt-1">
-                                                <input type="text" id="repRef_${l.logId}" value="${l.replenishRef || ''}" placeholder="Ref No..." class="px-2 py-1 text-[10px] w-full border rounded">
-                                                <button onclick="saveRepRef('${l.logId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap transition">Save</button>
-                                            </div>
-                                        </div>`;
-                                    } else {
-                                        breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50"><span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br><span class="text-[9px] font-bold text-slate-500 uppercase">Ref: ${l.replenishRef || 'Walang nai-input'}</span></div>`;
-                                    }
-                                }
-                                breakdownHtml += `</div>`;
-
-                                tableHtml += `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-                                    <td class="p-3 font-bold align-top whitespace-nowrap">${formatFormalDate(l.date)}</td>
-                                    <td class="p-3 align-top leading-tight">${breakdownHtml}</td>
-                                    <td class="p-3 text-right font-black text-red-500 align-top whitespace-nowrap">${formatCurrency(l.dailyTotal)}</td>
-                                    <td class="p-3 text-center text-lg align-top whitespace-nowrap">${rLinks}</td>
-                                    <td class="p-3 text-center align-top whitespace-nowrap">${actionBtn}</td>
-                                </tr>`;
-                            } else {
-                                tableHtml += `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-                                    <td class="p-3 font-bold whitespace-nowrap">${formatFormalDate(l.date)}</td>
-                                    <td class="p-3 text-right whitespace-nowrap">${formatCurrency(l.transpoTotal)}</td>
-                                    <td class="p-3 text-right whitespace-nowrap">${formatCurrency(l.mealsTotal)}</td>
-                                    <td class="p-3 text-right whitespace-nowrap">${formatCurrency(l.materialsTotal)}</td>
-                                    <td class="p-3 text-right font-black text-red-500 whitespace-nowrap">${formatCurrency(l.dailyTotal)}</td>
-                                    <td class="p-3 text-center text-lg whitespace-nowrap">${rLinks}</td>
-                                    <td class="p-3 text-center whitespace-nowrap">${actionBtn}</td>
-                                </tr>`;
+                            let breakdownHtml = `<div class="text-[10px] text-slate-600 dark:text-slate-400 space-y-1 whitespace-normal">`; 
+                            
+                            if(l.transpoArr && l.transpoArr.length > 0) {
+                                breakdownHtml += `<div><span class="font-bold text-blue-500 uppercase">Transpo:</span><ul class="list-disc pl-4 mb-1">`;
+                                l.transpoArr.forEach(t => breakdownHtml += `<li>${t.from} to ${t.to} : ${formatCurrency(t.amount)}</li>`);
+                                breakdownHtml += `</ul></div>`;
                             }
+                            if(l.mealsArr && l.mealsArr.length > 0) {
+                                breakdownHtml += `<div><span class="font-bold text-orange-500 uppercase">Meals:</span><ul class="list-disc pl-4 mb-1">`;
+                                l.mealsArr.forEach(m => breakdownHtml += `<li>${m.name} : ${formatCurrency(m.amount)}</li>`);
+                                breakdownHtml += `</ul></div>`;
+                            }
+                            if(l.materialsArr && l.materialsArr.length > 0) {
+                                breakdownHtml += `<div><span class="font-bold text-emerald-500 uppercase">Materials:</span><ul class="list-disc pl-4 mt-1">`;
+                                l.materialsArr.forEach(m => breakdownHtml += `<li>${m.item} ${m.siNumber ? `<span class="text-[8px] uppercase tracking-wider text-slate-400">(Ref: ${m.siNumber})</span>` : ''} : ${formatCurrency(m.amount)}</li>`);
+                                breakdownHtml += `</ul></div>`;
+                            }
+                            
+                            if(l.replenishAmount > 0) {
+                                if (canAudit && proj.status === 'OPEN') {
+                                    breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50">
+                                        <span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br>
+                                        <div class="flex space-x-1 mt-1">
+                                            <input type="text" id="repRef_${l.logId}" value="${l.replenishRef || ''}" placeholder="Ref No..." class="px-2 py-1 text-[10px] w-full border rounded">
+                                            <button onclick="saveRepRef('${l.logId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap transition">Save</button>
+                                        </div>
+                                    </div>`;
+                                } else {
+                                    breakdownHtml += `<div class="mt-2 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-200 dark:border-emerald-800/50"><span class="font-bold text-emerald-600 uppercase">Replenished:</span> ${formatCurrency(l.replenishAmount)}<br><span class="text-[9px] font-bold text-slate-500 uppercase">Ref: ${l.replenishRef || 'Walang nai-input'}</span></div>`;
+                                }
+                            }
+                            breakdownHtml += `</div>`;
+
+                            // UPDATE: Daily Ledger Column Design (Running Balance)
+                            let ledgerHtml = `
+                                <div class="text-[10px] space-y-1 w-48 mx-auto border border-slate-200 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-900 shadow-sm">
+                                    <div class="flex justify-between text-slate-500 font-bold border-b dark:border-slate-700 pb-1 mb-1">
+                                        <span>Starting Bal:</span> <span class="text-slate-800 dark:text-slate-200">${formatCurrency(startTotal)}</span>
+                                    </div>
+                                    <div class="flex justify-between text-red-500 font-bold">
+                                        <span>Expenses:</span> <span>-${formatCurrency(l.dailyTotal)}</span>
+                                    </div>
+                                    ${l.replenishAmount > 0 ? `
+                                    <div class="flex justify-between text-emerald-500 font-bold border-b dark:border-slate-700 pb-1 mb-1">
+                                        <span>Replenished:</span> <span>+${formatCurrency(l.replenishAmount)}</span>
+                                    </div>` : `<div class="border-b dark:border-slate-700 pb-1 mb-1"></div>`}
+                                    <div class="flex justify-between text-blue-600 dark:text-blue-400 font-black pt-1">
+                                        <span>End Bal:</span> <span>${formatCurrency(runTotal)}</span>
+                                    </div>
+                                    <div class="text-center text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider flex justify-between bg-slate-50 dark:bg-slate-800 p-1 rounded">
+                                        <span class="text-orange-500">Meal: ${formatCurrency(runMeal)}</span>
+                                        <span class="text-emerald-500">Mat: ${formatCurrency(runMat)}</span>
+                                    </div>
+                                </div>
+                            `;
+
+                            tableHtml += `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                <td class="p-3 font-bold align-top whitespace-nowrap">${formatFormalDate(l.date)}</td>
+                                <td class="p-3 align-top leading-tight">${breakdownHtml}</td>
+                                <td class="p-3 align-top bg-slate-50 dark:bg-slate-800/30">${ledgerHtml}</td>
+                                <td class="p-3 text-center text-lg align-top whitespace-nowrap">${rLinks}</td>
+                                <td class="p-3 text-center align-top whitespace-nowrap">${actionBtn}</td>
+                            </tr>`;
                         });
                     }
                     tableHtml += `</tbody></table></div>`;
@@ -945,7 +997,6 @@
             const div = document.createElement('div');
             div.className = "flex flex-col md:flex-row space-y-2 md:space-y-0 space-x-0 md:space-x-2 mat-row animate-[fadeIn_0.3s_ease-out] border-b border-slate-200 dark:border-slate-700 pb-2 md:border-0 md:pb-0";
             
-            // NUMERIC ONLY VALIDATION FOR SI NUMBER
             div.innerHTML = `
                 <input type="text" placeholder="Item Name" value="${itemVal}" class="w-full md:w-1/2 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold m-item dark:text-white uppercase">
                 <input type="text" placeholder="SI/Receipt #" value="${siVal}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full md:w-1/4 px-3 py-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-xs font-bold text-blue-500 m-si dark:text-blue-300 uppercase">
